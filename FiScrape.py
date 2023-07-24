@@ -1,11 +1,11 @@
 # Last updated: 20230724 by FVT
 
 # If first time MacBook user, enter into terminal (⌥ + F12), use pip or pip3 as needed:
-#   1/ pip3 install pandas
-#   2/ pip3 install numpy
-#   3/ pip3 install beautifulsoup4
-#   4/ pip3 install selenium
-#   5/ pip3 install lxml
+#   1/ pip install pandas
+#   2/ pip install numpy
+#   3/ pip install beautifulsoup4
+#   4/ pip install selenium
+#   5/ pip install lxml
 #   6/ safaridriver --enable (enter password from administrator's account)
 
 # --- From this point below, everything should be fully automated ---
