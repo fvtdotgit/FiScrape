@@ -1,6 +1,6 @@
 # Last updated: 20230719 by FVT
 
-# If first time user, enter into terminal (⌥ + F12), use pip or pip3 as needed:
+# If first time MacBook user, enter into terminal (⌥ + F12), use pip or pip3 as needed:
 #   1/ pip3 install pandas
 #   2/ pip3 install numpy
 #   3/ pip3 install beautifulsoup4
