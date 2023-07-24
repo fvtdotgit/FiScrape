@@ -1,4 +1,4 @@
-# Last updated: 20230724 by FVT
+# Last updated: 20230724 by FVT (fvtdotgit)
 
 # If first time MacBook user, enter into terminal (⌥ + F12), use pip or pip3 as needed:
 #   1/ pip install pandas
