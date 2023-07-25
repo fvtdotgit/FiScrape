@@ -1,6 +1,6 @@
 # Last updated: 20230724 by FVT (fvtdotgit)
 
-# If first time MacBook user, enter into terminal (⌥ + F12), use pip or pip3 as needed:
+# If first time MacBook user, enter into Terminal (⌥ + F12), use pip or pip3 as needed:
 #   1/ pip install pandas
 #   2/ pip install numpy
 #   3/ pip install beautifulsoup4
@@ -21,6 +21,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
 
+# Choose a browser of your choice if needed
 driver = webdriver.Safari()
 driver.maximize_window()
 
