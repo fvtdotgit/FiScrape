@@ -1,4 +1,4 @@
-# Last updated: 20230724 by FVT (fvtdotgit)
+# Last updated: 20230726 by FVT  (fvtdotgit)
 
 # If first time MacBook user, enter into Terminal (⌥ + F12), use pip or pip3 as needed:
 #   1/ pip install pandas
@@ -36,6 +36,7 @@ pd.option_context('display.precision', 5)
 ticker_store = ["Ticker"]
 realtime_price_store = ["Price/Share ($)"]
 yield_store = ["Forward Dividend & Yield"]
+market_cap_store = ["Market Cap"]
 
 eps_store = ["EPS (TTM)"]
 diluted_eps_store = ["Diluted EPS"]
@@ -105,6 +106,15 @@ while can_input:
         today_change = [entry.text for entry in soup.find_all('fin-streamer', class_='Fw(500) Pstart(8px) Fz(24px)')]
         now = datetime.datetime.now()
 
+        try:
+            realtime_price[0]
+        except IndexError:
+            print("Yahoo Finance may have redirected you to the mobile version instead of the web version. If this is "
+                  "the case, you will need to restart FiScrape.")
+
+        if not realtime_price[0]:
+            realtime_price = ["N/A"]
+
         print(now)
         print(str(realtime_price) + str(today_change))
 
@@ -123,10 +133,17 @@ while can_input:
         df_summary_table = pd.DataFrame(raw_summary_table)
 
         # Boolean statement to be printed in data storage table
-        if not raw_summary_table:
+        if realtime_price == ["N/A"]:
             summary_availability_store.append("x")
         else:
             summary_availability_store.append("✓")
+
+        # Summary output
+        if print_boolean.lower() == "yes" and summary_availability_store[-1] == "✓":
+            print("")
+            print("REAL TIME SUMMARY")
+            print("")
+            print(df_summary_table.to_string(index=True, header=True))
 
         # Statistics page to html soup converter
         statistics_link = 'https://finance.yahoo.com/quote/' + ticker_index + '/key-statistics?p=' \
@@ -179,14 +196,8 @@ while can_input:
 
             statistics_availability_store.append("✓")
 
-            if print_boolean.lower() == "yes":
-                # Summary output
-                print("")
-                print("REAL TIME SUMMARY")
-                print("")
-                print(df_summary_table.to_string(index=True, header=True))
-
-                # Statistics output
+            # Statistics output
+            if print_boolean.lower() == "yes" and statistics_availability_store[-1] == "✓":
                 print("")
                 print("REAL TIME & HISTORIC STATISTICS")
                 print("")
@@ -199,10 +210,12 @@ while can_input:
                 if not df_example[df_example[0].str.match(parameter)].values.tolist()[0][0]:
                     return "---"
                 else:
-                    return df_example[df_example[0].str.match(parameter)].values.tolist()[0][column]
+                    return df_example[df_example[0].str.match(parameter)].values.tolist()[0][column] \
+                        .replace("N/A", "---")
                     # Note: for more historical data in the following columns, change the last value to 2, 3, or 4
 
-            # Function to convert million, billion, and trillion abbreviations into numerical values
+            # Function to convert millions, billions, and trillions abbreviations into numerical values
+            # Note: this can only be used for the statistics section
             def abbr_to_number(number_example):
                 if "M" in number_example:
                     return float(number_example.replace("M", "000000")) * 10 ** 6
@@ -211,16 +224,23 @@ while can_input:
                 elif "T" in number_example:
                     return float(number_example.replace("T", "000000000000")) * 10 ** 12
 
-            # Raw statistics data to extract
+            # Search and calculate financial document data
             market_cap = abbr_to_number(search_sum_stat_parameter(df_statistics_table, "Market Cap", 1))
             operating_cash_flow = abbr_to_number(search_sum_stat_parameter
                                                  (df_statistics_info, "Operating Cash Flow", 1))
 
+            if market_cap is not None and operating_cash_flow is not None:
+                price_to_cash_flow = str(round(market_cap / operating_cash_flow, 2))
+            else:
+                price_to_cash_flow = "---"
+
             # Appending pre-calculated data to data storage
+            market_cap_store.append(str(market_cap))
+
             price_to_book_store.append(search_sum_stat_parameter(df_statistics_table, "Price/Book", 1))
             price_to_sales_store.append(search_sum_stat_parameter(df_statistics_table, "Price/Sales", 1))
             price_to_earnings_store.append(search_sum_stat_parameter(df_statistics_table, "Trailing P/E", 1))
-            price_to_cash_flow_store.append(str(round(market_cap / operating_cash_flow, 2)))
+            price_to_cash_flow_store.append(price_to_cash_flow)
 
             diluted_eps_store.append(search_sum_stat_parameter(df_statistics_info, "Diluted EPS", 1))
 
@@ -235,7 +255,7 @@ while can_input:
 
             price_to_book_store.append("---")
             price_to_sales_store.append("---")
-            # Price-to-earnings ratio is always present
+            # Note: price-to-earnings store appendment for negative cases is present below
             price_to_cash_flow_store.append("---")
 
             diluted_eps_store.append("---")
@@ -314,7 +334,6 @@ while can_input:
                     fs_availability_store.append("✓")
 
                 # Functions to search for financial statement data
-
                 def search_fs_parameter(df_example, parameter, column):
                     if not df_example[0][df_example[0][0].str.match(parameter)].values.tolist():
                         return "Null"  # Should be 0 theoretically but would run into dividing by 0...
@@ -329,7 +348,7 @@ while can_input:
                     else:
                         return float(comma_number.replace(',', ''))
 
-                # Search and calculate financial document data
+                # Financial document data search
                 total_revenue = join_comma(search_fs_parameter(df_income_statement, "Total Revenue", 1))
                 total_revenue03 = join_comma(search_fs_parameter(df_income_statement, "Total Revenue", 5))
 
@@ -355,8 +374,7 @@ while can_input:
                 tax_provision = join_comma(search_fs_parameter(df_income_statement, "Tax Provision", 1))
                 invested_capital = join_comma(search_fs_parameter(df_balance_sheet, "Invested Capital", 1))
 
-                rev_3yr_growth = str(round((np.cbrt(total_revenue / total_revenue03) - 1) * 100, 2)) + '%'
-
+                # Financial document data calculations
                 if total_revenue != "Null" and total_revenue03 != "Null":
                     rev_3yr_growth = str(round((np.cbrt(total_revenue / total_revenue03) - 1) * 100, 2)) + '%'
                 else:
@@ -407,8 +425,50 @@ while can_input:
                 debt_to_equity_store.append(debt_to_equity)
                 roic_store.append(return_on_invested_capital)
 
-                if print_boolean.lower() == "yes":
-                    # Financial statement output
+                # Financial document back-up data search
+                tangible_book_value = join_comma(search_fs_parameter(df_balance_sheet, "Tangible Book Value", 1))
+                total_assets = join_comma(search_fs_parameter(df_balance_sheet, "Total Assets", 1))
+                operating_cash_flow = join_comma(search_fs_parameter(df_cash_flow, "Operating Cash Flow", 1))
+
+                # Back-up financial document data calculations and replacement (if statistics does not provide data)
+                if diluted_eps_store[-1] == "---":
+                    diluted_eps_store[-1] = join_comma(search_fs_parameter(df_income_statement, "Diluted EPS", 2))
+
+                if price_to_book_store[-1] == "---" and market_cap_store[-1] != "---" and tangible_book_value != "---":
+                    price_to_book = str(round(float(market_cap_store[-1]) / (tangible_book_value * 1000), 2))
+                    price_to_book_store[-1] = price_to_book_store[-1].replace("---", price_to_book)
+
+                if price_to_sales_store[-1] == "---" and market_cap_store[-1] != "---" and total_revenue != "---":
+                    price_to_sales = str(round(float(market_cap_store[-1]) / (total_revenue * 1000), 2))
+                    price_to_sales_store[-1] = price_to_sales_store[-1].replace("---", price_to_sales)
+
+                if price_to_earnings_store[-1] == "---" and market_cap_store[-1] != "---" and net_income != "---":
+                    price_to_earnings = str(round(float(market_cap_store[-1]) / (net_income * 1000), 2))
+                    price_to_earnings_store[-1] = price_to_earnings_store[-1].replace("---", price_to_earnings)
+
+                if price_to_cash_flow_store[-1] == "---" and market_cap_store[-1] != "---" \
+                        and operating_cash_flow != "---":
+                    price_to_cash_flow = str(round(float(market_cap_store[-1]) / (operating_cash_flow * 1000), 2))
+                    price_to_cash_flow_store[-1] = price_to_cash_flow_store[-1].replace("---", price_to_cash_flow)
+
+                if current_ratio_store[-1] == "---" and current_assets != "Null" and current_liabilities != "Null":
+                    current_ratio = str(round(current_assets / current_liabilities, 2))
+                    current_ratio_store[-1] = current_ratio_store[-1].replace("---", current_ratio)
+
+                if return_on_assets_store[-1] == "---" and net_income != "Null" and total_assets != "Null":
+                    return_on_assets = str(round(net_income / total_assets * 100, 2)) + "%"
+                    return_on_assets_store[-1] = return_on_assets_store[-1].replace("---", return_on_assets)
+
+                if return_on_equity_store[-1] == "---" and net_income != "Null" and stockholders_equity != "Null":
+                    return_on_equity = str(round(net_income / stockholders_equity * 100, 2)) + "%"
+                    return_on_equity_store[-1] = return_on_equity_store[-1].replace("---", return_on_equity)
+
+                if profit_margin_store[-1] == "0.00%" and net_income != "Null" and total_revenue != "Null":
+                    profit_margin = str(round(net_income / total_revenue * 100, 2)) + "%"
+                    profit_margin_store[-1] = profit_margin_store[-1].replace("0.00%", profit_margin)
+
+                # Financial statement output
+                if print_boolean.lower() == "yes" and fs_availability_store[-1] == "✓":
                     print("")
                     print("INCOME STATEMENT")
                     print("")
@@ -456,7 +516,10 @@ while can_input:
         else:
             yield_store.append(search_sum_stat_parameter(df_summary_table, "Yield", 1))
             eps_store.append("---")
-            price_to_earnings_store.append(search_sum_stat_parameter(df_summary_table, "PE Ratio", 1))
+            try:
+                price_to_earnings_store.append(search_sum_stat_parameter(df_summary_table, "PE Ratio", 1))
+            except IndexError:
+                price_to_earnings_store.append("---")
 
     # Data storage table generator
     raw_data_storage = [summary_availability_store, statistics_availability_store, fs_availability_store,
