@@ -229,7 +229,7 @@ while can_input:
             operating_cash_flow = abbr_to_number(search_sum_stat_parameter
                                                  (df_statistics_info, "Operating Cash Flow", 1))
 
-            if market_cap is not None and operating_cash_flow is not None:
+            if market_cap and operating_cash_flow and operating_cash_flow != 0:
                 price_to_cash_flow = str(round(market_cap / operating_cash_flow, 2))
             else:
                 price_to_cash_flow = "---"
@@ -352,6 +352,9 @@ while can_input:
                 total_revenue = join_comma(search_fs_parameter(df_income_statement, "Total Revenue", 1))
                 total_revenue03 = join_comma(search_fs_parameter(df_income_statement, "Total Revenue", 5))
 
+                print(total_revenue)
+                print(total_revenue03)
+
                 operating_income = join_comma(search_fs_parameter(df_income_statement, "Operating Income", 1))
                 operating_income03 = join_comma(search_fs_parameter(df_income_statement, "Operating Income", 5))
 
@@ -375,42 +378,42 @@ while can_input:
                 invested_capital = join_comma(search_fs_parameter(df_balance_sheet, "Invested Capital", 1))
 
                 # Financial document data calculations
-                if total_revenue != "Null" and total_revenue03 != "Null":
+                if total_revenue != "Null" and total_revenue03 not in ["Null", 0]:
                     rev_3yr_growth = str(round((np.cbrt(total_revenue / total_revenue03) - 1) * 100, 2)) + '%'
                 else:
                     rev_3yr_growth = "---"
 
-                if operating_income != "Null" and operating_income03 != "Null":
+                if operating_income != "Null" and operating_income03 not in ["Null", 0]:
                     oi_3yr_growth = str(round((np.cbrt(operating_income / operating_income03) - 1) * 100, 2)) + '%'
                 else:
                     oi_3yr_growth = "---"
 
-                if net_income != "Null" and net_income03 != "Null":
+                if net_income != "Null" and net_income03 not in ["Null", 0]:
                     ni_3yr_growth = str(round((np.cbrt(net_income / net_income03) - 1) * 100, 2)) + '%'
                 else:
                     ni_3yr_growth = "---"
 
-                if diluted_eps != "Null" and diluted_eps03 != "Null":
-                    diluted_eps_growth = str(round(((diluted_eps / diluted_eps03) ** (1 / 3) - 1) * 100, 2)) + '%'
+                if diluted_eps != "Null" and diluted_eps03 not in ["Null", 0]:
+                    diluted_eps_growth = str(round((np.cbrt(diluted_eps / diluted_eps03) - 1) * 100, 2)) + '%'
                 else:
                     diluted_eps_growth = "---"
 
-                if current_assets != "Null" and current_liabilities != "Null" and inventory != "Null":
+                if current_assets != "Null" and current_liabilities not in ["Null", 0] and inventory != "Null":
                     quick_ratio = str(round((current_assets - inventory) / current_liabilities, 2))
                 else:
                     quick_ratio = "---"
 
-                if EBIT != "Null" and interest_expense != "Null":
+                if EBIT != "Null" and interest_expense not in ["Null", 0]:
                     interest_coverage = str(round(EBIT / interest_expense, 2))
                 else:
                     interest_coverage = "---"
 
-                if total_debt != "Null" and stockholders_equity != "Null":
+                if total_debt != "Null" and stockholders_equity not in ["Null", 0]:
                     debt_to_equity = str(round(total_debt / stockholders_equity, 2))
                 else:
                     debt_to_equity = "---"
 
-                if EBIT != "Null" and tax_provision != "Null" and invested_capital != "Null":
+                if EBIT != "Null" and tax_provision != "Null" and invested_capital not in ["Null", 0]:
                     return_on_invested_capital = str(round((EBIT - tax_provision) / invested_capital * 100, 2)) + '%'
                 else:
                     return_on_invested_capital = "---"
@@ -434,36 +437,43 @@ while can_input:
                 if diluted_eps_store[-1] == "---":
                     diluted_eps_store[-1] = join_comma(search_fs_parameter(df_income_statement, "Diluted EPS", 2))
 
-                if price_to_book_store[-1] == "---" and market_cap_store[-1] != "---" and tangible_book_value != "---":
+                if price_to_book_store[-1] == "---" and market_cap_store[-1] != "---" \
+                        and tangible_book_value not in ["---", 0]:
                     price_to_book = str(round(float(market_cap_store[-1]) / (tangible_book_value * 1000), 2))
                     price_to_book_store[-1] = price_to_book_store[-1].replace("---", price_to_book)
 
-                if price_to_sales_store[-1] == "---" and market_cap_store[-1] != "---" and total_revenue != "---":
+                if price_to_sales_store[-1] == "---" and market_cap_store[-1] != "---" \
+                        and total_revenue not in ["---", 0]:
                     price_to_sales = str(round(float(market_cap_store[-1]) / (total_revenue * 1000), 2))
                     price_to_sales_store[-1] = price_to_sales_store[-1].replace("---", price_to_sales)
 
-                if price_to_earnings_store[-1] == "---" and market_cap_store[-1] != "---" and net_income != "---":
+                if price_to_earnings_store[-1] == "---" and market_cap_store[-1] != "---" \
+                        and net_income not in ["---", 0]:
                     price_to_earnings = str(round(float(market_cap_store[-1]) / (net_income * 1000), 2))
                     price_to_earnings_store[-1] = price_to_earnings_store[-1].replace("---", price_to_earnings)
 
                 if price_to_cash_flow_store[-1] == "---" and market_cap_store[-1] != "---" \
-                        and operating_cash_flow != "---":
+                        and operating_cash_flow not in ["---", 0]:
                     price_to_cash_flow = str(round(float(market_cap_store[-1]) / (operating_cash_flow * 1000), 2))
                     price_to_cash_flow_store[-1] = price_to_cash_flow_store[-1].replace("---", price_to_cash_flow)
 
-                if current_ratio_store[-1] == "---" and current_assets != "Null" and current_liabilities != "Null":
+                if current_ratio_store[-1] == "---" and current_assets != "Null" and \
+                        current_liabilities not in ["---", 0]:
                     current_ratio = str(round(current_assets / current_liabilities, 2))
                     current_ratio_store[-1] = current_ratio_store[-1].replace("---", current_ratio)
 
-                if return_on_assets_store[-1] == "---" and net_income != "Null" and total_assets != "Null":
+                if return_on_assets_store[-1] == "---" and net_income != "Null" \
+                        and total_assets not in ["---", 0]:
                     return_on_assets = str(round(net_income / total_assets * 100, 2)) + "%"
                     return_on_assets_store[-1] = return_on_assets_store[-1].replace("---", return_on_assets)
 
-                if return_on_equity_store[-1] == "---" and net_income != "Null" and stockholders_equity != "Null":
+                if return_on_equity_store[-1] == "---" and net_income != "Null" and \
+                        stockholders_equity not in ["---", 0]:
                     return_on_equity = str(round(net_income / stockholders_equity * 100, 2)) + "%"
                     return_on_equity_store[-1] = return_on_equity_store[-1].replace("---", return_on_equity)
 
-                if profit_margin_store[-1] == "0.00%" and net_income != "Null" and total_revenue != "Null":
+                if profit_margin_store[-1] == "0.00%" and net_income != "Null" and \
+                        total_revenue not in ["---", 0]:
                     profit_margin = str(round(net_income / total_revenue * 100, 2)) + "%"
                     profit_margin_store[-1] = profit_margin_store[-1].replace("0.00%", profit_margin)
 
