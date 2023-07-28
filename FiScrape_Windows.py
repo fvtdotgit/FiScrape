@@ -1,6 +1,6 @@
-# Last updated: 20230726 by FVT (fvtdotgit)
+# Last updated: 20230724 by FVT (fvtdotgit)
 
-# If first time Windows user, enter into Windows Terminal, use pip or pip3 as needed:
+# If first time Windows user, enter into Command Prompt, use pip or pip3 as needed:
 #   1/ pip install pandas
 #   2/ pip install numpy
 #   3/ pip install beautifulsoup4
@@ -72,14 +72,30 @@ as well as automating calculations of financial ratios.
 Note 1: please observe your web browser while the program is running,
 or the financial documents on Yahoo Finance will not expand properly.
 """)
+print("---")
+
+
+# Create a Ticker class to populate tickers with appropriate links from Yahoo Finance
+class TickerURL:
+    def __init__(self, ticker):
+        self.ticker = ticker
+
+    def get_summary_link(self):
+        return f'https://finance.yahoo.com/quote/{self.ticker}?p={self.ticker}'
+
+    def get_statistics_link(self):
+        return f'https://finance.yahoo.com/quote/{self.ticker}/key-statistics?p={self.ticker}'
+
+    def get_financials_link(self, doc_type):
+        return f'https://finance.yahoo.com/quote/{self.ticker}/{doc_type}?p={self.ticker}'
+
 
 can_input = True
 
 while can_input:
     # Stock ticker input
-    print("---")
     print("")
-    ticker = input("Enter ticker(s) with spaces in between them (e.g. AAPL AXP META): ").split()
+    ticker_list = input("Enter ticker(s) with spaces in between them (e.g. AAPL AXP META): ").split()
     print("")
     print_boolean = input("Print financial statements (yes/no): ")
     print("")
@@ -87,14 +103,14 @@ while can_input:
     print("")
     print("---")
 
-    for ticker_index in ticker:
+    for ticker_iteration in ticker_list:
 
         print("")
-        print("STOCK TICKER: " + ticker_index)
+        print("STOCK TICKER: " + ticker_iteration)
         print("")
 
         # Summary page to html soup converter
-        summary_link = 'https://finance.yahoo.com/quote/' + ticker_index + '?p=' + ticker_index
+        summary_link = TickerURL(ticker_iteration).get_summary_link()
         driver.get(summary_link)
         html = driver.execute_script('return document.body.innerHTML;')
         soup = BeautifulSoup(html, 'lxml')
@@ -146,8 +162,7 @@ while can_input:
             print(df_summary_table.to_string(index=True, header=True))
 
         # Statistics page to html soup converter
-        statistics_link = 'https://finance.yahoo.com/quote/' + ticker_index + '/key-statistics?p=' \
-                          + ticker_index
+        statistics_link = TickerURL(ticker_iteration).get_statistics_link()
         driver.get(statistics_link)
         html = driver.execute_script('return document.body.innerHTML;')
         soup = BeautifulSoup(html, 'lxml')
@@ -273,10 +288,9 @@ while can_input:
 
         document = ['financials', 'balance-sheet', 'cash-flow']
 
-        for doc_type in range(len(document)):
+        for doc_iteration in range(len(document)):
             # Financial statement pages to html converter
-            fs_link = 'https://finance.yahoo.com/quote/' + ticker_index + '/' + document[
-                int(doc_type)] + '?p=' + ticker_index
+            fs_link = TickerURL(ticker_iteration).get_financials_link(document[doc_iteration])
             driver.get(fs_link)
             html = driver.execute_script('return document.body.innerHTML;')
             soup = BeautifulSoup(html, 'lxml')
@@ -316,18 +330,18 @@ while can_input:
 
                 df_financial_statement = pd.DataFrame(raw_fs_table)
 
-                if doc_type == 0:
+                if doc_iteration == 0:
                     df_income_statement.append(df_financial_statement)
                     print("")
                     print("INCOME STATEMENT: Completed")
-                    doc_type += 1
+                    doc_iteration += 1
                     continue
-                elif doc_type == 1:
+                elif doc_iteration == 1:
                     df_balance_sheet.append(df_financial_statement)
                     print("BALANCE SHEET: Completed")
-                    doc_type += 1
+                    doc_iteration += 1
                     continue
-                elif doc_type == 2:
+                elif doc_iteration == 2:
                     df_cash_flow.append(df_financial_statement)
                     print("CASH FLOW: Completed")
 
@@ -351,9 +365,6 @@ while can_input:
                 # Financial document data search
                 total_revenue = join_comma(search_fs_parameter(df_income_statement, "Total Revenue", 1))
                 total_revenue03 = join_comma(search_fs_parameter(df_income_statement, "Total Revenue", 5))
-
-                print(total_revenue)
-                print(total_revenue03)
 
                 operating_income = join_comma(search_fs_parameter(df_income_statement, "Operating Income", 1))
                 operating_income03 = join_comma(search_fs_parameter(df_income_statement, "Operating Income", 5))
@@ -518,7 +529,7 @@ while can_input:
                 return df_example[df_example[0].str.match(parameter)].values.tolist()[0][column]
                 # Note: for more historical data in the following columns, change the last value to 2, 3, or 4
 
-        ticker_store.append(ticker_index)
+        ticker_store.append(ticker_iteration)
         realtime_price_store.extend(realtime_price)
         if statistics_label[0] == "Statistics":
             yield_store.append(search_sum_stat_parameter(df_summary_table, "Forward Dividend & Yield", 1))
@@ -540,9 +551,14 @@ while can_input:
                         return_on_assets_store, return_on_equity_store, roic_store, profit_margin_store]
     df_data_storage = pd.DataFrame(raw_data_storage)
 
+    fiscrape_export = open("FiScrape_Export.txt", "w")
+    fiscrape_export.write(df_data_storage.to_csv())
+    fiscrape_export.close()
+
     # Data storage output
     print("")
     print("DATA STORAGE")
     print("")
     print(df_data_storage.to_string(index=True, header=True))
     print("")
+    print("---")
