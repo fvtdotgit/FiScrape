@@ -1,4 +1,4 @@
-# Last updated: 20230724 by FVT (fvtdotgit)
+# Last updated: 20230727 by FVT (fvtdotgit)
 
 # If first time Windows user, enter into Command Prompt, use pip or pip3 as needed:
 #   1/ pip install pandas
@@ -22,7 +22,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
 
 # Choose a browser of your choice if needed
-driver = webdriver.Safari()
+driver = webdriver.Chrome()
 driver.maximize_window()
 
 pd.options.display.float_format = '{:.0f}'.format
@@ -101,9 +101,15 @@ while can_input:
     print("")
     sleep_time = input("Enter average time for a website to load completely in seconds (e.g. 2): ")
     print("")
+    export_data_mode = input("To append or write data to final csv file, enter \"A\" or \"W\": ")
+    print("")
     print("---")
 
     for ticker_iteration in ticker_list:
+
+        print(ticker_iteration)
+        if str(ticker_iteration) == "STOP":
+            can_input = False
 
         print("")
         print("STOCK TICKER: " + ticker_iteration)
@@ -147,6 +153,8 @@ while can_input:
             raw_summary_table.append(summary_combined(summary_n_row))
 
         df_summary_table = pd.DataFrame(raw_summary_table)
+        print("")
+        print("SUMMARY: Completed")
 
         # Boolean statement to be printed in data storage table
         if realtime_price == ["N/A"]:
@@ -210,6 +218,8 @@ while can_input:
             df_statistics_info = pd.DataFrame(raw_statistics)
 
             statistics_availability_store.append("✓")
+            print("")
+            print("STATISTICS: Completed")
 
             # Statistics output
             if print_boolean.lower() == "yes" and statistics_availability_store[-1] == "✓":
@@ -332,18 +342,16 @@ while can_input:
 
                 if doc_iteration == 0:
                     df_income_statement.append(df_financial_statement)
-                    print("")
-                    print("INCOME STATEMENT: Completed")
                     doc_iteration += 1
                     continue
                 elif doc_iteration == 1:
                     df_balance_sheet.append(df_financial_statement)
-                    print("BALANCE SHEET: Completed")
                     doc_iteration += 1
                     continue
                 elif doc_iteration == 2:
                     df_cash_flow.append(df_financial_statement)
-                    print("CASH FLOW: Completed")
+                    print("")
+                    print("FINANCIAL STATEMENTS: Completed")
 
                     fs_availability_store.append("✓")
 
@@ -542,23 +550,32 @@ while can_input:
             except IndexError:
                 price_to_earnings_store.append("---")
 
-    # Data storage table generator
-    raw_data_storage = [summary_availability_store, statistics_availability_store, fs_availability_store,
-                        ticker_store, realtime_price_store, yield_store, diluted_eps_store,
-                        price_to_book_store, price_to_sales_store, price_to_earnings_store, price_to_cash_flow_store,
-                        rev_3yr_growth_store, oi_3yr_growth_store, ni_3yr_growth_store, diluted_eps_growth_store,
-                        quick_ratio_store, current_ratio_store, interest_coverage_store, debt_to_equity_store,
-                        return_on_assets_store, return_on_equity_store, roic_store, profit_margin_store]
-    df_data_storage = pd.DataFrame(raw_data_storage)
+        # Data storage table generator
+        raw_data_export = [summary_availability_store, statistics_availability_store, fs_availability_store,
+                           ticker_store, realtime_price_store, yield_store, diluted_eps_store,
+                           price_to_book_store, price_to_sales_store, price_to_earnings_store, price_to_cash_flow_store,
+                           rev_3yr_growth_store, oi_3yr_growth_store, ni_3yr_growth_store, diluted_eps_growth_store,
+                           quick_ratio_store, current_ratio_store, interest_coverage_store, debt_to_equity_store,
+                           return_on_assets_store, return_on_equity_store, roic_store, profit_margin_store]
+        df_data_export = pd.DataFrame(raw_data_export)
 
-    fiscrape_export = open("FiScrape_Export.txt", "w")
-    fiscrape_export.write(df_data_storage.to_csv())
-    fiscrape_export.close()
+        if export_data_mode.upper() == "A":
+            fiscrape_export = open("FiScrape_Export.txt", "a")
+            fiscrape_export.write(df_data_export.transpose()[(len(ticker_store) - 1):].to_csv(index=False, header=False))
+            fiscrape_export.close()
 
-    # Data storage output
-    print("")
-    print("DATA STORAGE")
-    print("")
-    print(df_data_storage.to_string(index=True, header=True))
-    print("")
-    print("---")
+        elif export_data_mode.upper() == "W":
+            fiscrape_export = open("FiScrape_Export.txt", "w")
+            fiscrape_export.write(df_data_export.transpose().to_csv(index=False, header=True))
+            fiscrape_export.close()
+
+        print("")
+        print("DATA EXPORT: Completed")
+
+        # Data storage output
+        if print_boolean == "yes":
+            print("")
+            print("DATA EXPORT")
+            print("")
+            print(df_data_export.to_string(index=True, header=True))
+            print("")
