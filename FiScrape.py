@@ -562,4 +562,3 @@ while can_input:
             print("")
             print(df_data_export.to_string(index=True, header=True))
             print("")
-
