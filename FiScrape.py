@@ -1,4 +1,4 @@
-# Last updated: 20230727 by FVT (fvtdotgit)
+# Last updated: 20230727 by FVT  (fvtdotgit)
 
 # If first time MacBook user, enter into Terminal (⌥ + F12), use pip or pip3 as needed:
 #   1/ pip install pandas
@@ -90,6 +90,44 @@ class TickerURL:
         return f'https://finance.yahoo.com/quote/{self.ticker}/{doc_type}?p={self.ticker}'
 
 
+# Function to search for summary or statistics data
+def search_sum_stat_parameter(df_example, parameter, column):
+    if not df_example[df_example[0].str.match(parameter)].values.tolist()[0][0]:
+        return "---"
+    else:
+        return df_example[df_example[0].str.match(parameter)].values.tolist()[0][column] \
+            .replace("N/A", "---")
+        # Note: for more historical data in the following columns, change the last value to 2, 3, or 4
+
+
+# Functions to search for financial statement data
+def search_fs_parameter(df_example, parameter, column):
+    if not df_example[0][df_example[0][0].str.match(parameter)].values.tolist():
+        return "Null"  # Should be 0 theoretically but would run into dividing by 0...
+    else:
+        return df_example[0][df_example[0][0].str.match(parameter)].values.tolist()[0][column]
+        # Note: for more historical data in the following columns, change the last value to 2, 3, or 4
+
+
+# Function to convert millions, billions, and trillions abbreviations into numerical values
+# Note: this can only be used for the statistics section
+def abbr_to_number(number_example):
+    if "M" in number_example:
+        return float(number_example.replace("M", "000000")) * 10 ** 6
+    elif "B" in number_example:
+        return float(number_example.replace("B", "000000000")) * 10 ** 9
+    elif "T" in number_example:
+        return float(number_example.replace("T", "000000000000")) * 10 ** 12
+
+
+# Convert comma-split numbers into numbers
+def join_comma(comma_number):
+    if comma_number == "Null":
+        return "Null"
+    else:
+        return float(comma_number.replace(',', ''))
+
+
 can_input = True
 
 while can_input:
@@ -106,10 +144,6 @@ while can_input:
     print("---")
 
     for ticker_iteration in ticker_list:
-
-        print(ticker_iteration)
-        if str(ticker_iteration) == "STOP":
-            can_input = False
 
         print("")
         print("STOCK TICKER: " + ticker_iteration)
@@ -146,11 +180,8 @@ while can_input:
 
         raw_summary_table = []
 
-        def summary_combined(sum_iteration):
-            return [summary_header[sum_iteration], summary_content[sum_iteration]]
-
         for summary_n_row in range(1, len(summary_header)):
-            raw_summary_table.append(summary_combined(summary_n_row))
+            raw_summary_table.append([summary_header[summary_n_row], summary_content[summary_n_row]])
 
         df_summary_table = pd.DataFrame(raw_summary_table)
         print("")
@@ -194,26 +225,20 @@ while can_input:
             # Generating the statistics table
             statistics_features = soup.find_all('tr', class_='Bxz(bb)')
 
-            def content(content_iteration):
-                return [entry.text for entry in
-                        statistics_features[content_iteration].find_all('td', class_='fi-row:h_Bgc('
-                                                                                     '$hoverBgColor)')]
-
             raw_statistics_table = [statistics_header]  # Note: the statistics table begins with the header
 
             for statistics_iteration in range(9):  # There are always 9 rows in "Statistics"
-                raw_statistics_table.append(content(statistics_iteration))
+                raw_statistics_table.append([entry.text for entry in
+                                             statistics_features[statistics_iteration].find_all
+                                             ('td', class_='fi-row:h_Bgc(''$hoverBgColor)')])
 
             df_statistics_table = pd.DataFrame(raw_statistics_table)
 
-            # Generating the statistics tradition information and financial highlights
-            def statistics_content(content_iteration):
-                return [entry.text for entry in statistics_features[content_iteration]]
-
+            # Generating the statistics information and financial highlights
             raw_statistics = []  # The trading information and financial highlights start out empty
 
             for statistics_iteration in range(9, 60):
-                raw_statistics.append(statistics_content(statistics_iteration))
+                raw_statistics.append([entry.text for entry in statistics_features[statistics_iteration]])
 
             df_statistics_info = pd.DataFrame(raw_statistics)
 
@@ -229,25 +254,6 @@ while can_input:
                 print(df_statistics_table.to_string(index=True, header=True))
                 print("")
                 print(df_statistics_info.to_string(index=True, header=True))
-
-            # Function to search for summary or statistics data
-            def search_sum_stat_parameter(df_example, parameter, column):
-                if not df_example[df_example[0].str.match(parameter)].values.tolist()[0][0]:
-                    return "---"
-                else:
-                    return df_example[df_example[0].str.match(parameter)].values.tolist()[0][column] \
-                        .replace("N/A", "---")
-                    # Note: for more historical data in the following columns, change the last value to 2, 3, or 4
-
-            # Function to convert millions, billions, and trillions abbreviations into numerical values
-            # Note: this can only be used for the statistics section
-            def abbr_to_number(number_example):
-                if "M" in number_example:
-                    return float(number_example.replace("M", "000000")) * 10 ** 6
-                elif "B" in number_example:
-                    return float(number_example.replace("B", "000000000")) * 10 ** 9
-                elif "T" in number_example:
-                    return float(number_example.replace("T", "000000000000")) * 10 ** 12
 
             # Search and calculate financial document data
             market_cap = abbr_to_number(search_sum_stat_parameter(df_statistics_table, "Market Cap", 1))
@@ -332,11 +338,10 @@ while can_input:
                 fs_header = [entry.text for entry in fs_features[0].find_all('div', class_='D(ib)')]
                 raw_fs_table = [fs_header]  # Note: The raw financial table begins with the headers
 
-                def fs_content(content_iteration):
-                    return [entry.text for entry in fs_features[content_iteration].find_all('div', class_='D(tbc)')]
-
+                # Generating the contents for the financial statements
                 for fs_iteration in range(1, len(fs_features)):
-                    raw_fs_table.append(fs_content(fs_iteration))
+                    raw_fs_table.append([entry.text for entry in
+                                         fs_features[fs_iteration].find_all('div', class_='D(tbc)')])
 
                 df_financial_statement = pd.DataFrame(raw_fs_table)
 
@@ -354,21 +359,6 @@ while can_input:
                     print("FINANCIAL STATEMENTS: Completed")
 
                     fs_availability_store.append("✓")
-
-                # Functions to search for financial statement data
-                def search_fs_parameter(df_example, parameter, column):
-                    if not df_example[0][df_example[0][0].str.match(parameter)].values.tolist():
-                        return "Null"  # Should be 0 theoretically but would run into dividing by 0...
-                    else:
-                        return df_example[0][df_example[0][0].str.match(parameter)].values.tolist()[0][column]
-                        # Note: for more historical data in the following columns, change the last value to 2, 3, or 4
-
-                # Convert comma-split numbers into numbers
-                def join_comma(comma_number):
-                    if comma_number == "Null":
-                        return "Null"
-                    else:
-                        return float(comma_number.replace(',', ''))
 
                 # Financial document data search
                 total_revenue = join_comma(search_fs_parameter(df_income_statement, "Total Revenue", 1))
@@ -530,13 +520,6 @@ while can_input:
                 break
 
         # Appending summary data to data storage
-        def search_sum_stat_parameter(df_example, parameter, column):
-            if not df_example[df_example[0].str.match(parameter)].values.tolist()[0][0]:
-                return "---"
-            else:
-                return df_example[df_example[0].str.match(parameter)].values.tolist()[0][column]
-                # Note: for more historical data in the following columns, change the last value to 2, 3, or 4
-
         ticker_store.append(ticker_iteration)
         realtime_price_store.extend(realtime_price)
         if statistics_label[0] == "Statistics":
