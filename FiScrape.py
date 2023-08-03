@@ -34,7 +34,7 @@ pd.set_option('display.max_colwidth', None)
 pd.option_context('display.precision', 5)
 
 # Data storage boxes
-ticker_store = ["Ticker"]
+ticker_store = ['Ticker']
 summary_availability_store = ["Summary"]
 statistics_availability_store = ["Statistics"]
 fs_availability_store = ["Financial Statement(s)"]
