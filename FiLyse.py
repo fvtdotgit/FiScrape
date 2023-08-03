@@ -7,8 +7,8 @@ pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
 pd.option_context('display.precision', 5)
 
-csv_data_storage = open("FiScrape_Export.txt", "r")
-raw_data_storage = pd.read_csv(csv_data_storage).values.tolist()
-df_data_storage = pd.DataFrame(raw_data_storage).transpose()
+csv_data_import = open("FiScrape_Export.txt", "r")
+raw_data_import = pd.read_csv(csv_data_import).values.tolist()
+df_data_import = pd.DataFrame(raw_data_import).transpose()
 
-print(df_data_storage)
+print(df_data_import.to_string(index=True, header=False))
