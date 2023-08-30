@@ -1,4 +1,3 @@
-# Create a Ticker class to populate tickers with appropriate links from Yahoo Finance
 class Ticker:
     def __init__(self, ticker, **kwargs):
         self.ticker = ticker

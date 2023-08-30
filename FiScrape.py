@@ -63,7 +63,7 @@ roic_store = ['Return on Invested Capital (%)']
 profit_margin_store = ['Profit Margin (%)']
 
 
-# Function to search for summary or statistics data.
+# Function to search for summary or statistics data
 def search_sum_stat_parameter(df_example, parameter, column):
     if not df_example[df_example[0].str.match(parameter)].values.tolist():
         return '---'
@@ -139,9 +139,10 @@ while True:
             try:
                 mobile_test = realtime_price[0]
                 break
-            except IndexError:
-                print(f'\nError: unexpected redirection to Yahoo Finance, mobile version'
-                      f'\n\nAffected ticker: {ticker_iteration}')
+            except Exception as exception:
+                print(f'Yahoo Finance may have redirected you to the mobile version instead of the web version. '
+                      f'\n\nAffected ticker: {ticker_iteration}'
+                      f'\n\nError: {exception}')
                 driver.close()
                 driver = webdriver.Safari()
                 driver.maximize_window()
@@ -150,10 +151,13 @@ while True:
         if not realtime_price[0]:
             print(f'\nError: potentially misspelled ticker'
                   f'\n\nAffected ticker: {ticker_iteration}')
-            realtime_price = ['N/A']
+            realtime_price = ['---']
 
         today_change = [entry.text for entry in soup.find_all('fin-streamer', class_='Fw(500) Pstart(8px) Fz(24px)')]
         now = datetime.now()
+
+        print('\n' + str(now))
+        print(str(realtime_price) + str(today_change))
 
         # Summary table generator
         summary_header = [entry.text for entry in soup.find_all('td', class_='C($primaryColor) W(51%)')]
@@ -164,14 +168,13 @@ while True:
 
         df_summary_table = pd.DataFrame(raw_summary_table)
 
+        print('\nSUMMARY: Completed')
+
         # Boolean statement to be printed in data storage table
         if realtime_price == ['N/A']:
             summary_availability_store.extend(['x'])
         else:
             summary_availability_store.extend(['✓'])
-            print('\n' + str(now))
-            print(f'${realtime_price[0]}, {today_change[0]} {today_change[1]}')
-            print('\nSUMMARY: Completed')
 
         # Summary output
         if print_boolean.lower() == 'yes' and summary_availability_store[-1] == '✓':
@@ -467,6 +470,8 @@ while True:
                     print('\n' + df_cash_flow.to_string(index=True, header=False))
 
             else:
+                print('\nNo financial documents available')
+
                 # Extending empty financial ratios to data storage
                 fs_availability_store.extend(['x'])
 
@@ -537,18 +542,17 @@ while True:
             fiscrape_export.write(df_data_export.transpose()[(len(ticker_store) - 1):].
                                   to_csv(index=False, header=False))
             fiscrape_export.close()
-            print('\nDATA EXPORT: Completed')
-            print('\n---')
 
         elif export_data_mode.upper() == 'W':
             fiscrape_export = open('FiScrape_Export.txt', 'w')
             fiscrape_export.write(df_data_export.transpose().to_csv(index=False, header=True))
             fiscrape_export.close()
-            print('\nDATA EXPORT: Completed')
-            print('\n---')
+
+        print('\nDATA EXPORT: Completed')
+        print('\n---')
 
         # Data storage output
-        if print_boolean == 'yes':
+        if print_boolean == 'yes' and ticker_iteration == ticker_list[-1]:
             print('\nDATA EXPORT')
             print('\n' + df_data_export.to_string(index=True, header=False))
 
