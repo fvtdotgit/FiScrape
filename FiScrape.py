@@ -1,4 +1,4 @@
-# Last updated: 20230806 by FVT (fvtdotgit)
+# Last updated: 20230920 by FVT (fvtdotgit)
 
 # If first time MacBook user, enter into Terminal (⌥ + F12), use pip or pip3 as needed:
 #   1/ pip install pandas
@@ -14,12 +14,20 @@
 import pandas as pd
 from numpy import cbrt
 from datetime import datetime
+from time import time
 from time import sleep
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
+import logging
+from fiscrape_logger import logger
+
+logging.basicConfig(filename='fiscrape_logging.log', filemode='w', level=logging.INFO,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%m/%d/%Y %H:%M:%S')
+
+logger.info('FiScrape: application initiated.')
 
 pd.options.display.float_format = '{:.0f}'.format
 pd.set_option('display.max_rows', None)
@@ -104,28 +112,44 @@ print('''\nWelcome to Financial Scrape! I can help you pull financial informatio
 as well as automating calculations of financial ratios.
 
 Note: please observe your web browser while the program is running,
-or the financial documents on Yahoo Finance will not expand properly.''')
+or the financial statements on Yahoo Finance will not expand properly.''')
 print('\n---')
 
 driver = webdriver.Safari()
 driver.maximize_window()
 
 while True:
-    # Stock ticker input
+    # Various inputs to configure FiScrape
     export_data_mode = input('\nTo append to current data or write new data to csv file export, enter \"A\" or \"W\". '
                              'To do neither, leave empty: ')
     ticker_list = input('\nEnter ticker(s) with spaces in between them (e.g. AAPL AXP META): ').split()
     print_boolean = input('\nPrint financial statements (yes/no): ')
-    sleep_time = input('\nEnter average time for a website to load completely in seconds (e.g. 2): ')
+
+    # Sleep time inputs and error handling to prevent letters or negative numeric values
+    while True:
+        sleep_time = input('\nEnter average time for a website to load completely in seconds (e.g. 2): ')
+        try:
+            float(sleep_time)
+            assert float(sleep_time) >= 0
+            break
+        except ValueError:
+            print('\nOnly numeric inputs are allowed. Please try again.')
+        except AssertionError:
+            print('\nOnly zero or positive values are allowed. Please try again.')
+
     print('\n---')
 
-    for ticker_iteration in ticker_list:
-        print('\nSTOCK TICKER: ' + ticker_iteration)
+    for ticker in ticker_list:
+        start = time()
+        
+        logger.info(f'{ticker}: analysis initiated.')
 
-        # Error handling for unexpected redirection to Yahoo Finance, mobile version
+        print('\nTICKER: ' + ticker)
+
+        # Error handling for unexpected redirection to Yahoo Finance mobile version
         while True:
             # Summary page to html soup converter
-            summary_link = f'https://finance.yahoo.com/quote/{ticker_iteration}?p={ticker_iteration}'
+            summary_link = f'https://finance.yahoo.com/quote/{ticker}?p={ticker}'
             driver.get(summary_link)
             html = driver.execute_script('return document.body.innerHTML;')
             soup = BeautifulSoup(html, 'lxml')
@@ -139,19 +163,22 @@ while True:
             try:
                 mobile_test = realtime_price[0]
                 break
-            except Exception as exception:
-                print(f'Yahoo Finance may have redirected you to the mobile version instead of the web version. '
-                      f'\n\nAffected ticker: {ticker_iteration}'
-                      f'\n\nError: {exception}')
+            except IndexError:
+                logger.error(f'{ticker}: driver directed user to Yahoo Finance mobile version.')
+
                 driver.close()
                 driver = webdriver.Safari()
                 driver.maximize_window()
 
         # Error handling for incorrectly typed ticker
         if not realtime_price[0]:
-            print(f'\nError: potentially misspelled ticker'
-                  f'\n\nAffected ticker: {ticker_iteration}')
+            logger.warning(f'{ticker}: potentially misspelled ticker.')
+
             realtime_price = ['---']
+
+            sleep(float(sleep_time))
+
+            continue
 
         today_change = [entry.text for entry in soup.find_all('fin-streamer', class_='Fw(500) Pstart(8px) Fz(24px)')]
         now = datetime.now()
@@ -160,6 +187,8 @@ while True:
         print(str(realtime_price) + str(today_change))
 
         # Summary table generator
+        logger.info(f'{ticker}: summary scraping initiated.')
+
         summary_header = [entry.text for entry in soup.find_all('td', class_='C($primaryColor) W(51%)')]
         summary_content = [entry.text for entry in soup.find_all('td', class_='Ta(end) Fw(600) Lh(14px)')]
 
@@ -167,6 +196,8 @@ while True:
                              for summary_iteration in range(1, len(summary_header))]
 
         df_summary_table = pd.DataFrame(raw_summary_table)
+
+        logger.info(f'{ticker}: summary scraping completed.')
 
         print('\nSUMMARY: Completed')
 
@@ -179,10 +210,10 @@ while True:
         # Summary output
         if print_boolean.lower() == 'yes' and summary_availability_store[-1] == '✓':
             print('\nREAL TIME SUMMARY')
-            print('\n' + df_summary_table.to_string(index=True, header=False))
+            print('\n' + df_summary_table.to_string(index=True, header=False) + '\n')
 
         # Statistics page to html soup converter
-        statistics_link = f'https://finance.yahoo.com/quote/{ticker_iteration}/key-statistics?p={ticker_iteration}'
+        statistics_link = f'https://finance.yahoo.com/quote/{ticker}/key-statistics?p={ticker}'
         driver.get(statistics_link)
         html = driver.execute_script('return document.body.innerHTML;')
         soup = BeautifulSoup(html, 'lxml')
@@ -197,6 +228,7 @@ while True:
 
         # Statistics table generator if "Statistics" tab is present
         if statistics_label[0] == 'Statistics':
+            logger.info(f'{ticker}: statistics scraping initiated.')
 
             # Generating the header for the statistics section
             statistics_header = [entry.text for entry in soup.find_all('th', class_='Fw(b)')]
@@ -222,16 +254,21 @@ while True:
 
             df_statistics_info = pd.DataFrame(raw_statistics_info)
 
+            logger.info(f'{ticker}: statistics scraping completed.')
+
+            print('STATISTICS: Completed')
+
             statistics_availability_store.extend(['✓'])
-            print('\nSTATISTICS: Completed')
 
             # Statistics output
             if print_boolean.lower() == 'yes' and statistics_availability_store[-1] == '✓':
                 print('\nREAL TIME & HISTORIC STATISTICS')
                 print('\n' + df_statistics_table.to_string(index=True, header=False))
-                print('\n' + df_statistics_info.to_string(index=True, header=False))
+                print('\n' + df_statistics_info.to_string(index=True, header=False) + '\n')
 
-            # Search and calculate financial document data
+            # Search and calculate financial statement data
+            logger.info(f'{ticker}: statistics data processing initiated.')
+
             market_cap = abbr_to_number(search_sum_stat_parameter(df_statistics_table, 'Market Cap', 1))
             operating_cash_flow = abbr_to_number(search_sum_stat_parameter
                                                  (df_statistics_info, 'Operating Cash Flow', 1))
@@ -254,7 +291,11 @@ while True:
             return_on_equity_store.extend([search_sum_stat_parameter(df_statistics_info, 'Return on Equity', 1)])
             profit_margin_store.extend([search_sum_stat_parameter(df_statistics_info, 'Profit Margin', 1)])
 
+            logger.info(f'{ticker}: statistics data processing completed.')
+
         else:
+            print('STATISTICS: No statistics available')
+
             statistics_availability_store.extend(['x'])
             latest_10Q_store.extend(['---'])
             market_cap_store.extend(['---'])
@@ -268,17 +309,17 @@ while True:
             return_on_equity_store.extend(['---'])
             profit_margin_store.extend(['---'])
 
-        # Types of financial documents to generate
+        # Types of financial statements to generate
         df_income_statement = []
         df_balance_sheet = []
         df_cash_flow = []
 
-        document = ['financials', 'balance-sheet', 'cash-flow']
+        logger.info(f'{ticker}: financial statements scraping initiated.')
 
-        for doc_iteration in range(3):
+        for document in ['financials', 'balance-sheet', 'cash-flow']:
             # Financial statement pages to html converter
-            fs_link = (f'https://finance.yahoo.com/quote/{ticker_iteration}/'
-                       f'{document[doc_iteration]}?p={ticker_iteration}')
+            fs_link = (f'https://finance.yahoo.com/quote/{ticker}/'
+                       f'{document}?p={ticker}')
             driver.get(fs_link)
             html = driver.execute_script('return document.body.innerHTML;')
             soup = BeautifulSoup(html, 'lxml')
@@ -315,32 +356,52 @@ while True:
 
                 df_financial_statement = pd.DataFrame(raw_fs_table)
 
-                if doc_iteration == 0:
+                if document in 'financials':
                     df_income_statement = df_financial_statement.copy()
-                    doc_iteration += 1
                     continue
-                elif doc_iteration == 1:
+                elif document in 'balance-sheet':
                     df_balance_sheet = df_financial_statement.copy()
-                    doc_iteration += 1
                     continue
-                elif doc_iteration == 2:
+                elif document in 'cash-flow':
                     df_cash_flow = df_financial_statement.copy()
-                    print('\nFINANCIAL STATEMENTS: Completed')
+
+                    logger.info(f'{ticker}: financial statements scraping completed.')
+
+                    print('FINANCIAL STATEMENTS: Completed')
 
                     fs_availability_store.extend(['✓'])
 
-                # Financial document data search
-                total_revenue = join_comma(search_fs_parameter(df_income_statement, 'Total Revenue', 1))
-                total_revenue03 = join_comma(search_fs_parameter(df_income_statement, 'Total Revenue', 5))
+                # Financial statement data search
+                logger.info(f'{ticker}: financial statements data processing initiated.')
 
-                operating_income = join_comma(search_fs_parameter(df_income_statement, 'Operating Income', 1))
-                operating_income03 = join_comma(search_fs_parameter(df_income_statement, 'Operating Income', 5))
+                # The try except block prevents out of range error when only 4 columns are displayed instead of 5.
+                try:
+                    total_revenue = join_comma(search_fs_parameter(df_income_statement, 'Total Revenue', 1))
+                    total_revenue03 = join_comma(search_fs_parameter(df_income_statement, 'Total Revenue', 5))
 
-                net_income = join_comma(search_fs_parameter(df_income_statement, 'Net Income', 1))
-                net_income03 = join_comma(search_fs_parameter(df_income_statement, 'Net Income', 5))
+                    operating_income = join_comma(search_fs_parameter(df_income_statement, 'Operating Income', 1))
+                    operating_income03 = join_comma(search_fs_parameter(df_income_statement, 'Operating Income', 5))
 
-                diluted_eps = join_comma(search_fs_parameter(df_income_statement, 'Diluted EPS', 2))
-                diluted_eps03 = join_comma(search_fs_parameter(df_income_statement, 'Diluted EPS', 5))
+                    net_income = join_comma(search_fs_parameter(df_income_statement, 'Net Income', 1))
+                    net_income03 = join_comma(search_fs_parameter(df_income_statement, 'Net Income', 5))
+
+                    diluted_eps = join_comma(search_fs_parameter(df_income_statement, 'Diluted EPS', 2))
+                    diluted_eps03 = join_comma(search_fs_parameter(df_income_statement, 'Diluted EPS', 5))
+                except IndexError:
+                    logger.warning(f'{ticker}: insufficient historic data, 2-year TTM data provided in place of '
+                                   f'3-year TTM data.')
+
+                    total_revenue = join_comma(search_fs_parameter(df_income_statement, 'Total Revenue', 1))
+                    total_revenue03 = join_comma(search_fs_parameter(df_income_statement, 'Total Revenue', 4))
+
+                    operating_income = join_comma(search_fs_parameter(df_income_statement, 'Operating Income', 1))
+                    operating_income03 = join_comma(search_fs_parameter(df_income_statement, 'Operating Income', 4))
+
+                    net_income = join_comma(search_fs_parameter(df_income_statement, 'Net Income', 1))
+                    net_income03 = join_comma(search_fs_parameter(df_income_statement, 'Net Income', 4))
+
+                    diluted_eps = join_comma(search_fs_parameter(df_income_statement, 'Diluted EPS', 2))
+                    diluted_eps03 = join_comma(search_fs_parameter(df_income_statement, 'Diluted EPS', 4))
 
                 current_assets = join_comma(search_fs_parameter(df_balance_sheet, 'Current Assets', 1))
                 current_liabilities = join_comma(search_fs_parameter(df_balance_sheet, 'Current Liabilities', 1))
@@ -355,7 +416,7 @@ while True:
                 tax_provision = join_comma(search_fs_parameter(df_income_statement, 'Tax Provision', 1))
                 invested_capital = join_comma(search_fs_parameter(df_balance_sheet, 'Invested Capital', 1))
 
-                # Financial document data calculations
+                # Financial statement data calculations
                 if total_revenue != 'Null' and total_revenue03 not in ['Null', 0]:
                     rev_3yr_growth = str(round((cbrt(total_revenue / total_revenue03) - 1) * 100, 2)) + '%'
                 else:
@@ -407,58 +468,69 @@ while True:
                 debt_to_equity_store.extend([debt_to_equity])
                 roic_store.extend([return_on_invested_capital])
 
-                # Financial document back-up data search
+                # Financial statement back-up data search
                 tangible_book_value = join_comma(search_fs_parameter(df_balance_sheet, 'Tangible Book Value', 1))
                 total_assets = join_comma(search_fs_parameter(df_balance_sheet, 'Total Assets', 1))
                 operating_cash_flow = join_comma(search_fs_parameter(df_cash_flow, 'Operating Cash Flow', 1))
 
-                # Back-up financial document data calculations and replacement (if statistics does not provide data)
+                # Back-up financial statement data calculations and replacement (if statistics does not provide data)
                 if diluted_eps_store[-1] == '---':
                     diluted_eps_store[-1] = join_comma(search_fs_parameter(df_income_statement, 'Diluted EPS', 2))
+                    logger.info(f'{ticker}: TTD diluted EPS unavailable (alternative source: income statement).')
 
                 if price_to_book_store[-1] == '---' and market_cap_store[-1] != '---' \
                         and tangible_book_value not in ['---', 0]:
                     price_to_book = str(round(float(abbr_to_number(market_cap_store[-1]))
                                               / (tangible_book_value * 1000), 2))
                     price_to_book_store[-1] = price_to_book_store[-1].replace('---', price_to_book)
+                    logger.info(f'{ticker}: TTD price/book unavailable (alternative source: balance sheet).')
 
                 if price_to_sales_store[-1] == '---' and market_cap_store[-1] != '---' \
                         and total_revenue not in ['---', 0]:
                     price_to_sales = str(round(float(abbr_to_number(market_cap_store[-1]))
                                                / (total_revenue * 1000), 2))
                     price_to_sales_store[-1] = price_to_sales_store[-1].replace('---', price_to_sales)
+                    logger.info(f'{ticker}: TTD price/sales unavailable (alternative source: income statement).')
 
                 if price_to_earnings_store[-1] == '---' and market_cap_store[-1] != '---' \
                         and net_income not in ['---', 0]:
                     price_to_earnings = str(round(float(abbr_to_number(market_cap_store[-1]))
                                                   / (net_income * 1000), 2))
                     price_to_earnings_store[-1] = price_to_earnings_store[-1].replace('---', price_to_earnings)
+                    logger.info(f'{ticker}: TTD price/earnings unavailable (alternative source: income statement).')
 
                 if price_to_cash_flow_store[-1] == '---' and market_cap_store[-1] != '---' \
                         and operating_cash_flow not in ['---', 0]:
                     price_to_cash_flow = str(round(float(abbr_to_number(market_cap_store[-1]))
                                                    / (operating_cash_flow * 1000), 2))
                     price_to_cash_flow_store[-1] = price_to_cash_flow_store[-1].replace('---', price_to_cash_flow)
+                    logger.info(f'{ticker}: TTD price/cash flow unavailable (alternative source: cash flow).')
 
                 if current_ratio_store[-1] == '---' and current_assets != 'Null' and \
                         current_liabilities not in ['---', 0]:
                     current_ratio = str(round(current_assets / current_liabilities, 2))
                     current_ratio_store[-1] = current_ratio_store[-1].replace('---', current_ratio)
+                    logger.info(f'{ticker}: TTD current ratio unavailable (alternative source: balance sheet).')
 
                 if return_on_assets_store[-1] == '---' and net_income != 'Null' \
                         and total_assets not in ['---', 0]:
                     return_on_assets = str(round(net_income / total_assets * 100, 2)) + '%'
                     return_on_assets_store[-1] = return_on_assets_store[-1].replace('---', return_on_assets)
+                    logger.info(f'{ticker}: TTD return on assets unavailable '
+                                f'(alternative source: income statement, balance sheet).')
 
                 if return_on_equity_store[-1] == '---' and net_income != 'Null' and \
                         stockholders_equity not in ['---', 0]:
                     return_on_equity = str(round(net_income / stockholders_equity * 100, 2)) + '%'
                     return_on_equity_store[-1] = return_on_equity_store[-1].replace('---', return_on_equity)
+                    logger.info(f'{ticker}: TTD return on equity unavailable '
+                                f'(alternative source: income statement, balance sheet).')
 
                 if profit_margin_store[-1] == '0.00%' and net_income != 'Null' and \
                         total_revenue not in ['---', 0]:
                     profit_margin = str(round(net_income / total_revenue * 100, 2)) + '%'
                     profit_margin_store[-1] = profit_margin_store[-1].replace('0.00%', profit_margin)
+                    logger.info(f'{ticker}: TTD profit margin unavailable (alternative source: income statement).')
 
                 # Financial statement output
                 if print_boolean.lower() == 'yes' and fs_availability_store[-1] == '✓':
@@ -467,10 +539,12 @@ while True:
                     print('\nBALANCE SHEET')
                     print('\n' + df_balance_sheet.to_string(index=True, header=False))
                     print('\nCASH FLOW')
-                    print('\n' + df_cash_flow.to_string(index=True, header=False))
+                    print('\n' + df_cash_flow.to_string(index=True, header=False) + '\n')
+
+                logger.info(f'{ticker}: financial statements data processing concluded.')
 
             else:
-                print('\nNo financial documents available')
+                print('FINANCIAL STATEMENTS: No financial statements available')
 
                 # Extending empty financial ratios to data storage
                 fs_availability_store.extend(['x'])
@@ -488,7 +562,9 @@ while True:
                 break
 
         # Extending summary data to data storage
-        ticker_store.extend([ticker_iteration])
+        logger.info(f'{ticker}: data export initiated.')
+        
+        ticker_store.extend([ticker])
         realtime_price_store.extend(realtime_price)
         if statistics_label[0] == 'Statistics':
             yield_store.extend([search_sum_stat_parameter(df_summary_table, 'Forward Dividend & Yield', 1)])
@@ -538,25 +614,36 @@ while True:
         df_data_export = pd.DataFrame(raw_data_export)
 
         if export_data_mode.upper() == 'A':
-            fiscrape_export = open('FiScrape_Export.txt', 'a')
+            fiscrape_export = open('fiscrape_export.txt', 'a')
             fiscrape_export.write(df_data_export.transpose()[(len(ticker_store) - 1):].
                                   to_csv(index=False, header=False))
             fiscrape_export.close()
 
         elif export_data_mode.upper() == 'W':
-            fiscrape_export = open('FiScrape_Export.txt', 'w')
+            fiscrape_export = open('fiscrape_export.txt', 'w')
             fiscrape_export.write(df_data_export.transpose().to_csv(index=False, header=True))
             fiscrape_export.close()
+            
+        logger.info(f'{ticker}: data export concluded.')
 
-        print('\nDATA EXPORT: Completed')
+        print('DATA EXPORT: Completed')
         print('\n---')
 
         # Data storage output
-        if print_boolean == 'yes' and ticker_iteration == ticker_list[-1]:
+        if print_boolean == 'yes' and ticker == ticker_list[-1]:
             print('\nDATA EXPORT')
             print('\n' + df_data_export.to_string(index=True, header=False))
+            
+        end = time()
+        
+        logger.info(f'{ticker}: analysis concluded (total time: {end - start} seconds).')
 
     if input('\nDo you wish to append more data? Enter \"yes\" or \"no\": ').lower() == 'no':
         break
 
 driver.quit()
+
+print('\nPlease check fiscrape_logging.log for more detailed information on alternative calculations '
+      'of certain financial ratios based on availability.')
+
+logger.info('FiScrape: closing application.')
