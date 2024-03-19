@@ -24,8 +24,7 @@ from selenium.webdriver.support import expected_conditions as ec
 import logging
 from fiscrape_logger import logger
 
-logging.basicConfig(filename='fiscrape_logging.log', filemode='w', level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%m/%d/%Y %H:%M:%S')
+logging.basicConfig(filemode='w', level=logging.WARNING)
 
 logger.info('FiScrape: application initiated.')
 
@@ -248,8 +247,7 @@ while True:
             df_statistics_table = pd.DataFrame(raw_statistics_table)
 
             # Generating the statistics information and financial highlights
-
-            raw_statistics_info = [[entry.text for entry in statistics_features[statistics_iteration]]
+            raw_statistics_info = [[entry.text.strip() for entry in statistics_features[statistics_iteration]]
                                    for statistics_iteration in range(9, 60)]
 
             df_statistics_info = pd.DataFrame(raw_statistics_info)
