@@ -1,4 +1,4 @@
-# Last updated: 20240319 by FVT (fvtdotgit)
+# Last updated: 20240320 by FVT (fvtdotgit)
 
 # If first time MacBook user, enter into Terminal (⌥ + F12), use pip or pip3 as needed:
 #   1/ pip install pandas
@@ -107,26 +107,40 @@ def join_comma(comma_number):
         return float(comma_number.replace(',', ''))
 
 
-print('''\nWelcome to Financial Scrape! I can help you pull financial information from Yahoo Finance,
+print('''\nWelcome to FiScrape! I can help you pull financial information from Yahoo Finance,
 as well as automating calculations of financial ratios.
 
 Note: please observe your web browser while the program is running,
 or the financial statements on Yahoo Finance will not expand properly.''')
 print('\n---')
 
-driver = webdriver.Safari()
-driver.maximize_window()
-
 while True:
     # Various inputs to configure FiScrape
+    easter_egg_count = 0
+
+    while True:
+        easter_eggs = ['\nYou must input at least one ticker. Try again.',
+                       '\nYou still haven\'t inputted any tickers. Please input at least one ticker.',
+                       '\nYou are so stubborn... One more and I will break.']
+        try:
+            ticker_list = input('\nEnter ticker(s) with spaces in between them (e.g. ABC BCD CDE): ').split()
+            assert len(ticker_list) > 0
+            break
+        except AssertionError:
+            if easter_egg_count >= len(easter_eggs):
+                raise Exception('Told you so. Don\'t say I didn\'t warned you.')
+            print(easter_eggs[easter_egg_count])
+            easter_egg_count += 1
+
     export_data_mode = input('\nTo append to current data or write new data to csv file export, enter \"A\" or \"W\". '
                              'To do neither, leave empty: ')
-    ticker_list = input('\nEnter ticker(s) with spaces in between them (e.g. AAPL AXP META): ').split()
-    print_boolean = input('\nPrint financial statements (yes/no): ')
+    print_boolean = input('\nPrint financial statements (yes/no) (default: no): ')
 
     # Sleep time inputs and error handling to prevent letters or negative numeric values
     while True:
-        sleep_time = input('\nEnter average time for a website to load completely in seconds (e.g. 2): ')
+        sleep_time = input('\nEnter average time for a website to load completely in seconds (default: 2s): ')
+        if sleep_time == '':
+            sleep_time = 2
         try:
             float(sleep_time)
             assert float(sleep_time) >= 0
@@ -137,6 +151,8 @@ while True:
             print('\nOnly zero or positive values are allowed. Please try again.')
 
     print('\n---')
+
+    driver = webdriver.Safari()
 
     for ticker in ticker_list:
         start = time()
@@ -157,7 +173,9 @@ while True:
 
             # Real time price (also a good test whether the web version is loaded)
             realtime_price = [entry.text for entry in soup.find_all('fin-streamer',
-                                                                    class_='livePrice svelte-el7lzh')]
+                                                                    class_='livePrice svelte-mgkamr')]
+
+            print(realtime_price)
 
             try:
                 mobile_test = realtime_price[0]
@@ -167,7 +185,6 @@ while True:
 
                 driver.close()
                 driver = webdriver.Safari()
-                driver.maximize_window()
 
         # Error handling for incorrectly typed ticker
         if not realtime_price[0]:
@@ -212,10 +229,11 @@ while True:
         # Statistics page to html soup converter
         statistics_link = f'https://finance.yahoo.com/quote/{ticker}/key-statistics?p={ticker}'
         driver.get(statistics_link)
-        html = driver.execute_script('return document.body.innerHTML;')
-        soup = BeautifulSoup(html, 'lxml')
 
         sleep(float(sleep_time))
+
+        html = driver.execute_script('return document.body.innerHTML;')
+        soup = BeautifulSoup(html, 'lxml')
 
         # Identifying whether statistics & financial information are available through the side tabs
         side_tab_labels = [entry.text for entry in soup.find_all('li', class_='svelte-1cy1lt')]
@@ -627,9 +645,8 @@ while True:
         print('\n---')
 
         # Data storage output
-        if print_boolean == 'yes' and ticker == ticker_list[-1]:
-            print('\nDATA EXPORT')
-            print('\n' + df_data_export.to_string(index=True, header=False))
+        print('\nDATA EXPORT')
+        print('\n' + df_data_export.to_string(index=True, header=False))
 
         end = time()
 
@@ -638,7 +655,7 @@ while True:
     if input('\nDo you wish to append more data? Enter \"yes\" or \"no\": ').lower() == 'no':
         break
 
-driver.quit()
+    driver.quit()
 
 print('\nPlease check fiscrape_logging.log for more detailed information on alternative calculations '
       'of certain financial ratios based on availability.')
