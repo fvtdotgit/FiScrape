@@ -236,7 +236,7 @@ while True:
         soup = BeautifulSoup(html, 'lxml')
 
         # Identifying whether statistics & financial information are available through the side tabs
-        side_tab_labels = [entry.text for entry in soup.find_all('li', class_='svelte-1cy1lt')]
+        side_tab_labels = [entry.text for entry in soup.find_all('li', class_='svelte-1o7i3hz')]
 
         # Statistics table generator if "Statistics" tab is present
         if 'Statistics  ' in side_tab_labels:
@@ -258,7 +258,7 @@ while True:
             df_statistics_table = pd.DataFrame(raw_statistics_table)
 
             # Cleaning up statistics table
-            df_statistics_table.pop(7)  # Popping the last none column
+            df_statistics_table.pop(6)  # Popping the last none column
             df_statistics_table_T = df_statistics_table.T  # Transpose
             for null_row in (1, 11, 12):
                 df_statistics_table_T.pop(null_row)
