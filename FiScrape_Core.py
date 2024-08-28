@@ -48,6 +48,7 @@ class Driver:
     - create_driver(head=None): Creates and returns a Selenium WebDriver instance with optional headless mode.
 
     """
+
     @staticmethod
     def create_driver(head=None):
         """
@@ -59,11 +60,27 @@ class Driver:
         :return: A configured Selenium WebDriver instance.
         :rtype: webdriver.Firefox
         """
+        # Set up Firefox options
         opt = webdriver.FirefoxOptions()
+        opt.set_preference("permissions.default.image", 2)
+        opt.set_preference("dom.ipc.plugins.enabled.libflashplayer.so", "false")  # Disable Flash
+        opt.set_preference("permissions.default.stylesheet", 2)  # Disable CSS
+        opt.log.level = "fatal"  # Disable logging
+        opt.page_load_strategy = 'normal'  # Options: 'normal', 'eager', 'none'
+        opt.set_preference("javascript.enabled", True)
+        opt.set_preference("dom.webnotifications.enabled", False)
+
+        # Enable WebGL and GPU acceleration
+        opt.add_argument('--enable-webgl')
+        opt.add_argument('--enable-gpu')
+
         if not head:
             opt.add_argument('-headless')
-        driver = webdriver.Firefox(options=opt)  # Create headless driver
+
+        # Create WebDriver with the customized profile
+        driver = webdriver.Firefox(options=opt)
         driver.delete_all_cookies()
+        driver.set_page_load_timeout(30)  # Adjust as necessary
 
         return driver
 
@@ -425,9 +442,11 @@ class Scraper:
             try:
                 # Attempt to locate and click the 'Expand All' button
                 expand_all_button = WebDriverWait(driver, 20).until(
-                    ec.element_to_be_clickable((By.XPATH, self.expand_all_button_xpath))
-                )
+                    ec.element_to_be_clickable((By.XPATH, self.expand_all_button_xpath)))
+
                 expand_all_button.click()
+                sleep(self.sleep_time)
+
                 logger.info(f"{ticker}: 'Expand All' button clicked successfully.")
                 return True  # Success
             except (TimeoutException, WebDriverException) as e:
@@ -509,18 +528,8 @@ class Scraper:
 
             logger.info(f"{ticker}: Price, change, and summary scraping initiated.")
 
-            # Try loading the summary page with retries
-            for attempt in range(self.retries):
-                logger.info(f"{ticker}: Attempt {attempt + 1} to load summary page.")
-                soup = self.load_and_check_version(Ticker(ticker).summary_link, driver, ticker)
-                if soup is not None:
-                    logger.info(f"{ticker}: Successfully loaded the summary page on attempt {attempt + 1}.")
-                    break  # Break out of the loop if the correct version is loaded
-                logger.warning(f"{ticker}: Failed to load the summary page on attempt {attempt + 1}. Retrying...")
-                driver.quit()
-                driver = Driver.create_driver(head)  # Create a new driver for the next attempt
-            else:
-                raise Exception(f'{ticker}: Failed to load the correct summary page after {self.retries} retries.')
+            # Loading the summary page
+            soup = Scraper.request(self, Ticker(ticker).summary_link)
 
             # Real-time price and change (also a good test whether the web version is loaded)
             name = [entry.text for entry in soup.find(self.se_name, class_=self.se_class_name)]  # First one only!
@@ -542,18 +551,8 @@ class Scraper:
 
             logger.info(f"{ticker}: Price, change, and summary fetched successfully.")
 
-            # Try loading the statistics page with retries
-            for attempt in range(self.retries):
-                logger.info(f"{ticker}: Attempt {attempt + 1} to load statistics page.")
-                soup = self.load_and_check_version(Ticker(ticker).statistics_link, driver, ticker)
-                if soup is not None:
-                    logger.info(f"{ticker}: Successfully loaded the statistics page on attempt {attempt + 1}.")
-                    break  # Break out of the loop if the correct version is loaded
-                logger.warning(f"{ticker}: Failed to load the statistics page on attempt {attempt + 1}. Retrying...")
-                driver.quit()
-                driver = Driver.create_driver(head)  # Create a new driver for the next attempt
-            else:
-                raise Exception(f'{ticker}: Failed to load the correct statistics page after {self.retries} retries.')
+            # Loading the statistics page
+            soup = Scraper.request(self, Ticker(ticker).statistics_link)
 
             # Identifying whether statistics & financial information are available through the side tabs
             side_tab_labels = [entry.text.strip() for entry in soup.select('a[category]')]
@@ -1141,7 +1140,10 @@ class Analyzer:
         elif 'T' in number_string:
             return float(number_string.replace('T', '')) * 10 ** 12
         logger.warning(f"Unrecognized abbreviation in number string: {number_string}")
-        return number_string
+        try:
+            return float(number_string)
+        except ValueError:
+            return number_string
 
     @staticmethod
     def join_comma(comma_number):
@@ -1417,10 +1419,10 @@ class Analyzer:
 
                         try:
                             # Diluted EPS growth, 3-year TTM
-                            diluted_eps_fs = Analyzer.join_comma(
-                                Analyzer.search_parameter(df_income_statement, 'Diluted EPS', self.period))
-                            diluted_eps_fs_prev = Analyzer.join_comma(
-                                Analyzer.search_parameter(df_income_statement, 'Diluted EPS', 5))
+                            diluted_eps_fs = Analyzer.abbr_to_number(Analyzer.search_parameter(
+                                df_income_statement, 'Diluted EPS', self.period))
+                            diluted_eps_fs_prev = Analyzer.abbr_to_number(Analyzer.search_parameter(
+                                df_income_statement, 'Diluted EPS', 5))
 
                             diluted_eps_period = 3
 
@@ -1429,10 +1431,10 @@ class Analyzer:
                                            f' of 3-year TTM data.')
 
                             # Diluted EPS growth, 2-year TTM
-                            diluted_eps_fs = Analyzer.join_comma(
-                                Analyzer.search_parameter(df_income_statement, 'Diluted EPS', self.period))
-                            diluted_eps_fs_prev = Analyzer.join_comma(
-                                Analyzer.search_parameter(df_income_statement, 'Diluted EPS', 4))
+                            diluted_eps_fs = Analyzer.abbr_to_number(Analyzer.search_parameter(
+                                df_income_statement, 'Diluted EPS', self.period))
+                            diluted_eps_fs_prev = Analyzer.abbr_to_number(Analyzer.search_parameter(
+                                df_income_statement, 'Diluted EPS', 4))
 
                             diluted_eps_period = 2
 
@@ -1851,9 +1853,15 @@ class Compiler:
             tickers = analyzer_output_or_filepath['ticker'].unique().tolist()
             logger.info(f"Loaded data from DataFrame with {len(tickers)} tickers.")
         elif isinstance(analyzer_output_or_filepath, str):
-            analyzer_output = pd.read_csv(analyzer_output_or_filepath)
-            tickers = analyzer_output['ticker'].unique().tolist()
-            logger.info(f"Loaded data from file '{analyzer_output_or_filepath}' with {len(tickers)} tickers.")
+            try:
+                analyzer_output = pd.read_csv(analyzer_output_or_filepath)
+                tickers = analyzer_output['ticker'].unique().tolist()
+                logger.info(f"Loaded data from file '{analyzer_output_or_filepath}' with {len(tickers)} tickers.")
+            except pd.errors.EmptyDataError:
+                analyzer_output = None
+                tickers = None
+                logger.info(f'Empty DataFrame from {analyzer_output_or_filepath}')
+
         else:
             logger.error('Incorrect input type. Must be a DataFrame or filepath string.')
             return
@@ -2050,7 +2058,7 @@ class Compiler:
             df_insider_transactions = pd.DataFrame(insider_transactions_data).transpose()
             logger.info(f"Insider transactions compilation completed.")
 
-        return df_fundamentals, df_profile, df_holders, df_insider_transactions
+        return [df_fundamentals, df_profile, df_holders, df_insider_transactions]
 
 
 class Exporter:

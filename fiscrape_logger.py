@@ -1,5 +1,6 @@
 import logging
 
+# Logger shares the same name with the file (fiscrape_logger)
 logger = logging.getLogger(__name__)
 
 # Set up handler
