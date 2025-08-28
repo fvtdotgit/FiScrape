@@ -6,7 +6,7 @@ Also, before you get started, be aware that this uses Mozilla Firefox so install
 You will also need geckodriver too at https://github.com/mozilla/geckodriver/releases.
 """
 
-import FiScrape_Core
+
 import logging
 import time
 
@@ -17,26 +17,25 @@ if __name__ == '__main__':
     tickers = input(str('Input your tickers separated by spaces here (e.g. AAPL AXP V): ')).upper()
     targets = (input(str("Choose between 'fundamentals,' 'holders,' 'insider transactions,' 'profile,' or 'all': "))
                .lower())
-    export_path = input(str('Choose location for export (e.g. full_output.csv): '))
-    recommendation = input(str('yes or no recommendation? ')).lower()
+    export_path = 'full_output.csv'
+    recommendation = 'yes'
 
     # Initialize all modules used
     start = time.time()
-    scraper = FiScrape_Core.Scraper()
+    scraper = fiscrape_core.core.Scraper()
     analyzer = FiScrape_Core.Analyzer()
     exporter = FiScrape_Core.Exporter()
     compiler = FiScrape_Core.Compiler()
 
     # Obtain recommendations for the very first ticker inputted
     if recommendation == 'yes':
-        tickers = scraper.obtain_recommendation(tickers, 3)
+        tickers = scraper.obtain_recommendation(tickers, 0)
         print('Your recommended tickers: ' + tickers)
     else:
         pass
 
     # Scrape (adjust max capacity to your liking, go over 1 at your own risk)
-
-    scraped = scraper.scrape(tickers, targets, 0.75)
+    scraped = scraper.scrape(tickers, targets, 0.8)
 
     # For financial_data_period, choose between 'TTM' or '10K'
     analyzed = analyzer.analyze(tickers, scraped, targets, 'TTM')
@@ -46,8 +45,10 @@ if __name__ == '__main__':
 
     # Import and analyze
     compiled = compiler.compile(export_path, targets)
-    print(compiled)
 
     end = time.time()
 
     print(f'This scraping took {end - start} seconds')
+
+    # Print out other pertinent documents
+    print(compiled)

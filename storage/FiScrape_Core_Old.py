@@ -106,6 +106,7 @@ class Ticker:
     - get_attr(attribute_name): Retrieves the value of a specified attribute.
     - get_all_attr(): Returns a dictionary of all attributes for the ticker.
     """
+
     def __init__(self, ticker, **kwargs):
         """
         Initializes a Ticker instance with the provided stock ticker symbol and additional attributes.
@@ -200,80 +201,89 @@ class Scraper:
     - scrape(ticker_string, target='fundamentals', max_processes_capacity=1): Scrapes data for multiple tickers
     using multiprocessing.
     """
+
     def __init__(self,
                  sleep_time=random.uniform(0.5, 1.5),
                  retries=10,
                  max_click_retries=10,
-                 # Load and check
-                 se_version_indicator='a',
-                 se_class_version_indicator='rapid-noclick-resp opt-in-link',
-                 indicator_text='\nBack to classic\n\n\n\n\n',
+                 # Load and check (Main functionality deprecated for now)
+                 se_version_indicator='',
+                 se_class_version_indicator='',
+                 indicator_text='',
                  # Recommender
-                 se_ticker_and_name='a',
-                 se_class_ticker_and_name='loud-link fin-size-large yf-13p9sh2',
-                 se_ticker='span',
+                 se_rec_ticker_and_name='a',
+                 se_class_rec_ticker_and_name='loud-link fin-size-large yf-1xqzjha',
+                 se_rec_ticker='span',  # Does not contain class
+                 se_rec_name='div',
+                 se_class_rec_name='longName yf-15b2o7n',
                  # Summary page
-                 se_name='div',
-                 se_class_name='longName yf-15b2o7n',
-                 se_price='fin-streamer',
-                 se_class_price='livePrice yf-mgkamr',
-                 se_change='fin-streamer',
-                 se_class_change='priceChange yf-mgkamr',
+                 se_name='h1',
+                 se_class_name='yf-xxbei9',
+                 se_price='span',
+                 se_class_price='base yf-ipw1h0',
+                 se_change='span',
+                 se_class_change='yf-ipw1h0',
                  se_summary_label='span',
-                 se_class_summary_label='label yf-tx3nkj',
+                 se_class_summary_label='label yf-1d5fln4',
                  se_summary_content='span',
-                 se_class_summary_content='value yf-tx3nkj',
+                 se_class_summary_content='value yf-1d5fln4',
                  # Statistics page
-                 se_statistics_valuation_table_header='th',
-                 se_class_statistics_valuation_table_header='yf-104jbnt',
+                 se_statistics_valuation_table_header='th',  # Input columns of headers, not rows
+                 se_class_statistics_valuation_table_header='yf-kbx2lo',  # Input columns of headers, not rows
                  se_statistics_valuation_table_row='tr',
-                 se_class_statistics_valuation_table_row='yf-104jbnt',
+                 se_class_statistics_valuation_table_row='yf-kbx2lo',
                  se_statistics_valuation_table_column='td',
-                 se_class_statistics_valuation_table_column='yf-104jbnt',
-                 se_statistics_hgl_n_info_header='header',  # Unused
-                 se_class_statistics_hgl_n_info_header='yf-13ievhf',  # Unused
-                 se_statistics_hgl_n_info_content='table',  # Unused
-                 se_class_statistics_hgl_n_info_content='table yf-vaowmx',  # Unused
-                 se_statistics_hgl_n_info_row='tr',
-                 se_class_statistics_hgl_n_info_row='row yf-vaowmx',
-                 se_statistics_hgl_n_info_column='td',
-                 se_class_statistics_hgl_n_info_column='yf-vaowmx',
+                 se_class_statistics_valuation_table_column='yf-kbx2lo',
+                 se_statistics_highlights_row='tr',
+                 se_class_statistics_highlights_row='yf-vaowmx',
+                 se_statistics_highlights_column='td',
+                 se_class_statistics_highlights_column='yf-vaowmx',
                  # Financials page(s)
-                 expand_all_button_xpath='//*[@id="nimbus-app"]/section/section/section/article/article/div/div['
-                                         '2]/button/span',
+                 expand_all_button_xpath='//*[@id="nimbus-app"]/section/section/section/article/article/div/div[2]/'
+                                         'div[3]/button/span',
                  se_financials_header_row='div',
-                 se_class_financials_header_row='row yf-1ezv2n5',
+                 se_class_financials_header_row='row yf-1yyu1pc',
                  se_financials_header_column='div',
-                 se_class_financials_header_column='column yf-1ezv2n5',  # Unused
+                 se_class_financials_header_column='column yf-1yyu1pc',  # Unused (all column contents start with 'div')
                  se_financials_content_row='div',
-                 se_class_financials_content_row='.row.lv-0.yf-1xjz32c, .row.lv-1.yf-1xjz32c, '
-                                                 '.row.lv-2.yf-1xjz32c, .row.lv-3.yf-1xjz32c, '
-                                                 '.row.lv-4.yf-1xjz32c',
+                 se_class_financials_content_row='.row.lv-0.yf-t22klz, .row.lv-1.yf-t22klz, '
+                                                 '.row.lv-2.yf-t22klz, .row.lv-3.yf-t22klz, '
+                                                 '.row.lv-4.yf-t22klz',
                  se_financials_content_column='div',
-                 se_class_financials_content_column='yf-1xjz32c',
+                 se_class_financials_content_column='yf-t22klz',  # Should be as general as possible to capture content
                  # Profile
                  se_sector_and_industry='a',
-                 se_class_sector_and_industry='subtle-link fin-size-large yf-13p9sh2',
+                 se_class_sector_and_industry='subtle-link fin-size-large yf-1xqzjha',
                  se_employees='dd',
-                 se_class_employees='',  # Unused
+                 se_class_employees='',  # Unused (not present in html)
                  se_profile_header_row='th',
                  se_class_profile_header_row='yf-mj92za',
-                 se_profile_header_column='th',
-                 se_class_profile_header_column='yf-mj92za',
-                 se_profile_content_row='tr',  # Unused
+                 se_profile_content_row='tr',
                  se_class_profile_content_row='yf-mj92za',
                  se_profile_content_column='td',
                  se_class_profile_content_column='yf-mj92za',
                  # Holders
                  se_major_holders='td',
                  se_class_major_holders='majorHolders yf-1toamfi',
+                 se_institutional_holders_header='th',
+                 se_class_institutional_holders_header='yf-1gx2qsk',
+                 se_institutional_holders_content_row='',
+                 se_class_institutional_holders_content_row='',
+                 se_institutional_holders_content_column='',
+                 se_class_institutional_holders_content_column='',
+                 se_mf_holders_header='',
+                 se_class_mf_holders_header='',
+                 se_mf_holders_content_row='',
+                 se_class_mf_holders_content_row='',
+                 se_mf_holders_content_column='',
+                 se_class_mf_holders_content_column='',
                  # Insider transaction
+                 se_insider_purchase_header='th',
+                 se_class_insider_purchase_header='yf-1toamfi',
                  se_insider_purchase_row='tr',
                  se_class_insider_purchase_row='yf-1toamfi',
-                 se_insider_purchase_header_cell='th',
-                 se_class_insider_purchase_header_cell='yf-1toamfi',
-                 se_insider_purchase_cell='td',
-                 se_class_insider_purchase_cell='yf-1toamfi'
+                 se_insider_purchase_column='td',
+                 se_class_insider_purchase_column='yf-1toamfi'
                  ):
         self.ticker_instances = {}  # Will contain all ticker data important for calculations and documentation
         self.sleep_time = sleep_time
@@ -284,9 +294,11 @@ class Scraper:
         self.se_class_version_indicator = se_class_version_indicator
         self.indicator_text = indicator_text
         # Recommender
-        self.se_ticker_and_name = se_ticker_and_name
-        self.se_class_ticker_and_name = se_class_ticker_and_name
-        self.se_ticker = se_ticker
+        self.se_rec_ticker_and_name = se_rec_ticker_and_name
+        self.se_class_rec_ticker_and_name = se_class_rec_ticker_and_name
+        self.se_rec_ticker = se_rec_ticker
+        self.se_rec_name = se_rec_name
+        self.se_class_rec_name = se_class_rec_name
         # Summary page
         self.se_name = se_name
         self.se_class_name = se_class_name
@@ -305,14 +317,10 @@ class Scraper:
         self.se_class_statistics_valuation_table_row = se_class_statistics_valuation_table_row
         self.se_statistics_valuation_table_column = se_statistics_valuation_table_column
         self.se_class_statistics_valuation_table_column = se_class_statistics_valuation_table_column
-        self.se_statistics_hgl_n_info_header = se_statistics_hgl_n_info_header
-        self.se_class_statistics_hgl_n_info_header = se_class_statistics_hgl_n_info_header
-        self.se_statistics_hgl_n_info_content = se_statistics_hgl_n_info_content
-        self.se_class_statistics_hgl_n_info_content = se_class_statistics_hgl_n_info_content
-        self.se_statistics_hgl_n_info_row = se_statistics_hgl_n_info_row
-        self.se_class_statistics_hgl_n_info_row = se_class_statistics_hgl_n_info_row
-        self.se_statistics_hgl_n_info_column = se_statistics_hgl_n_info_column
-        self.se_class_statistics_hgl_n_info_column = se_class_statistics_hgl_n_info_column
+        self.se_statistics_highlights_row = se_statistics_highlights_row
+        self.se_class_statistics_highlights_row = se_class_statistics_highlights_row
+        self.se_statistics_highlights_column = se_statistics_highlights_column
+        self.se_class_statistics_highlights_column = se_class_statistics_highlights_column
         # Financials page(s)
         self.expand_all_button_xpath = expand_all_button_xpath
         self.se_financials_header_row = se_financials_header_row
@@ -330,8 +338,6 @@ class Scraper:
         self.se_class_employees = se_class_employees
         self.se_profile_header_row = se_profile_header_row
         self.se_class_profile_header_row = se_class_profile_header_row
-        self.se_profile_header_column = se_profile_header_column
-        self.se_class_profile_header_column = se_class_profile_header_column
         self.se_profile_content_row = se_profile_content_row
         self.se_class_profile_content_row = se_class_profile_content_row
         self.se_profile_content_column = se_profile_content_column
@@ -340,12 +346,12 @@ class Scraper:
         self.se_major_holders = se_major_holders
         self.se_class_major_holders = se_class_major_holders
         # Insider transaction
+        self.se_insider_purchase_header = se_insider_purchase_header
+        self.se_class_insider_purchase_header = se_class_insider_purchase_header
         self.se_insider_purchase_row = se_insider_purchase_row
         self.se_class_insider_purchase_row = se_class_insider_purchase_row
-        self.se_insider_purchase_header_cell = se_insider_purchase_header_cell
-        self.se_class_insider_purchase_header_cell = se_class_insider_purchase_header_cell
-        self.se_insider_purchase_cell = se_insider_purchase_cell
-        self.se_class_insider_purchase_cell = se_class_insider_purchase_cell
+        self.se_insider_purchase_column = se_insider_purchase_column
+        self.se_class_insider_purchase_column = se_class_insider_purchase_column
         self.lock = multiprocessing.Lock()  # Lock for thread safety
 
     def request(self, url, headers=None):
@@ -375,7 +381,7 @@ class Scraper:
 
             return soup  # Correct version detected
 
-    def load_and_check_version(self, url, driver, ticker):
+    def load_and_check(self, url, driver, ticker):
         """
         Loads the specified URL in the given WebDriver instance and checks if the correct version of the page is loaded.
         If the page is not correctly loaded, logs an error and returns None.
@@ -384,6 +390,9 @@ class Scraper:
         consistently throughout the scraping process. Reusing the same WebDriver helps in preventing the loading
         of older versions of the web page, which can cause inconsistencies in the scraped data. Moreover, it ensures
         that the WebDriver is properly closed after use, preventing potential memory leaks.
+
+        Note: Temporary adjustments are made here as Yahoo Finance has seemingly deprecated their old layout in
+        their latest version. Currently, this method only loads the website, wait a few seconds, and outputs the soup.
 
         :param url: The URL to load.
         :type url: str
@@ -402,14 +411,14 @@ class Scraper:
             sleep(float(self.sleep_time))
 
             # Check for the correct version
-            indicator_texts = [entry.text for entry in soup.find_all(
-                self.se_version_indicator, class_=self.se_class_version_indicator)]
+            #            indicator_texts = [entry.text for entry in soup.find_all(
+            #                self.se_version_indicator, class_=self.se_class_version_indicator)]
 
-            if self.indicator_text in indicator_texts:
-                return soup  # Correct version detected
-            else:
-                logger.error(f'{ticker}: Incorrect version detected.')
-                return None
+            #            if self.indicator_text in indicator_texts:
+            return soup  # Correct version detected
+        #            else:
+        #                logger.error(f'{ticker}: Incorrect version detected.')
+        #                return None
 
         except TimeoutException as te:
             logger.error(f'{ticker}: Timeout while loading the page - {te}.')
@@ -475,11 +484,12 @@ class Scraper:
         try:
             soup = Scraper.request(self, Ticker(recommended_ticker).summary_link)
 
-            recommendation_content = [entry for entry in soup.find_all(self.se_ticker_and_name,
-                                                                       class_=self.se_class_ticker_and_name)]
+            recommendation_content = [entry for entry in soup.find_all(self.se_rec_ticker_and_name,
+                                                                       class_=self.se_class_rec_ticker_and_name)]
 
             recommended_ticker_outputs = [[entry.text for entry in
-                                           recommendation_content[recommendation_iteration].find_all(self.se_ticker)]
+                                           recommendation_content[recommendation_iteration].find_all(
+                                               self.se_rec_ticker)]
                                           for recommendation_iteration in range(len(recommendation_content))
                                           ][:number_of_recommendations + 1]
 
@@ -521,7 +531,7 @@ class Scraper:
         try:
             # Initialize variables that might not be available (e.g., index funds)
             df_statistics_valuations = None
-            df_statistics_hgl_n_info = None
+            df_statistics_highlights = None
             df_income_statement = None
             df_balance_sheet = None
             df_cash_flow = None
@@ -536,8 +546,9 @@ class Scraper:
             price = [entry.text for entry in soup.find_all(self.se_price, class_=self.se_class_price)]
             change = [entry.text for entry in soup.find_all(self.se_change, class_=self.se_class_change)]
 
-            change_intraday = (change[0], change[1])
-            change_afterhours = (change[2], change[3]) if len(change) > 2 else None
+            # Per the update in Jan 2025, the first and fourth entries indicate price while others indicate changes
+            change_intraday = (change[1], change[2])
+            change_afterhours = (change[4], change[5]) if len(change) > 5 else None
 
             summary_label = [entry.text for entry in soup.find_all(
                 self.se_summary_label, class_=self.se_class_summary_label)]
@@ -570,8 +581,8 @@ class Scraper:
                 statistics_valuation_table = soup.find_all(self.se_statistics_valuation_table_row,
                                                            class_=self.se_class_statistics_valuation_table_row)
 
-                # Note: the statistics valuation table begins with the header
-                raw_statistics_valuation_table = [statistics_valuation_header]
+                # Note: the statistics valuation table begins with the header (first 6 entries only)
+                raw_statistics_valuation_table = [statistics_valuation_header[0:7]]
                 # Extract the individual elements from the row generated in statistics table
                 raw_statistics_valuation_table.extend([[entry.text.strip() for entry in
                                                         statistics_valuation_table[valuation_iteration].find_all(
@@ -580,21 +591,18 @@ class Scraper:
                                                        for valuation_iteration in
                                                        range(len(statistics_valuation_table))])
 
-                df_statistics_valuations = pd.DataFrame(raw_statistics_valuation_table)
-
-                # Cleaning up statistics valuation table
-                df_statistics_valuations_T = df_statistics_valuations.T  # Transpose
-                df_statistics_valuations = df_statistics_valuations_T.T
+                # Cleaning up statistics valuation table (drop rows with None entries)
+                df_statistics_valuations = pd.DataFrame(raw_statistics_valuation_table).dropna()
 
                 # Generating the statistics financial highlights
-                statistics_hgl_n_info = soup.find_all(self.se_statistics_hgl_n_info_row,
-                                                      class_=self.se_class_statistics_hgl_n_info_row)
-                raw_statistics_hgl_n_info = [[entry.text.strip() for entry in
-                                              statistics_hgl_n_info[statistics_iteration].find_all(
-                                                  self.se_statistics_hgl_n_info_column,
-                                                  class_=self.se_class_statistics_hgl_n_info_column)]
-                                             for statistics_iteration in range(len(statistics_hgl_n_info))]
-                df_statistics_hgl_n_info = pd.DataFrame(raw_statistics_hgl_n_info)
+                statistics_highlights = soup.find_all(self.se_statistics_highlights_row,
+                                                      class_=self.se_class_statistics_highlights_row)
+                raw_statistics_highlights = [[entry.text.strip() for entry in
+                                              statistics_highlights[statistics_iteration].find_all(
+                                                  self.se_statistics_highlights_column,
+                                                  class_=self.se_class_statistics_highlights_column)]
+                                             for statistics_iteration in range(len(statistics_highlights))]
+                df_statistics_highlights = pd.DataFrame(raw_statistics_highlights)
 
                 logger.info(f'{ticker}: Statistics scraping completed.')
             else:
@@ -608,7 +616,7 @@ class Scraper:
                         logger.info(
                             f"{ticker}: Attempt {attempt + 1} to load financials page "
                             f"(link {link_iteration + 1}).")
-                        soup = self.load_and_check_version(Ticker(ticker).fs_link[link_iteration], driver, ticker)
+                        soup = self.load_and_check(Ticker(ticker).fs_link[link_iteration], driver, ticker)
                         if soup is not None:
                             logger.info(
                                 f"{ticker}: Successfully loaded the financials page on attempt {attempt + 1} "
@@ -632,9 +640,11 @@ class Scraper:
                     # Generating the header for the financial statements
                     fs_header_row = soup_expanded.find_all(self.se_financials_header_row,
                                                            class_=self.se_class_financials_header_row)
-                    # Note: only the main headers are extracted without other features
+                    # Note: only the main headers are extracted without other features. This indirect way is conducted
+                    # instead of scraping the soup directly is due to alternative class names for the header column.
                     fs_header_row = fs_header_row[0]
-                    fs_header = [entry.text for entry in fs_header_row.find_all(self.se_financials_header_column)]
+                    fs_header = [entry.text for entry in
+                                 fs_header_row.find_all(self.se_financials_header_column)]
                     raw_fs_table = [fs_header]  # Note: The raw financial table begins with the headers
 
                     # Generating the contents for the financial statements
@@ -667,14 +677,14 @@ class Scraper:
                 shared_dict[ticker] = {
                     'ticker': ticker,
                     'name': name[0],
-                    'price': price[0] if price[0] is not None else None,
+                    'price': price if price is not None else None,
                     'change_intraday': change_intraday if change_intraday is not None else None,
                     'change_afterhours': change_afterhours if change_afterhours is not None else None,
                     'df_summary': df_summary.to_dict() if df_summary is not None else None,
                     'df_statistics_valuations': df_statistics_valuations.to_dict() if
                     df_statistics_valuations is not None else None,
-                    'df_statistics_highlights': df_statistics_hgl_n_info.to_dict() if
-                    df_statistics_hgl_n_info is not None else None,
+                    'df_statistics_highlights': df_statistics_highlights.to_dict() if
+                    df_statistics_highlights is not None else None,
                     'df_income_statement': df_income_statement.to_dict() if df_income_statement is not None else None,
                     'df_balance_sheet': df_balance_sheet.to_dict() if df_balance_sheet is not None else None,
                     'df_cash_flow': df_cash_flow.to_dict() if df_cash_flow is not None else None
@@ -825,7 +835,7 @@ class Scraper:
 
             # Extract insider transaction data
             insider_transaction_header = [entry.text for entry in soup.find_all(
-                self.se_insider_purchase_header_cell, class_=self.se_class_insider_purchase_header_cell)][:3]
+                self.se_insider_purchase_header, class_=self.se_class_insider_purchase_header)][:3]
 
             raw_insider_transaction = [insider_transaction_header]
             # Note: The raw insider table begins with the headers
@@ -834,8 +844,8 @@ class Scraper:
                 self.se_insider_purchase_row, class_=self.se_class_insider_purchase_row)]
 
             raw_insider_transaction.extend([entry.text for entry in insider_transaction_content[insider_iteration]
-                                           .find_all(self.se_insider_purchase_cell,
-                                                     class_=self.se_class_insider_purchase_cell)][:3]
+                                           .find_all(self.se_insider_purchase_column,
+                                                     class_=self.se_class_insider_purchase_column)][:3]
                                            for insider_iteration in range(1, len(insider_transaction_content) - 3))
             # Note: List splicing prevents spillover scraping, and minus 3 prevents scraping tables below
 
@@ -1060,6 +1070,7 @@ class Analyzer:
     - analyze(ticker_string, scraper_output, target='fundamentals', financial_data_period='TTM'): Analyzes financial
     data for the specified tickers.
     """
+
     def __init__(self,
                  period=1,
                  round_int=2):
@@ -1237,8 +1248,7 @@ class Analyzer:
         :type target: str, optional
         :param financial_data_period: The period for financial data analysis (TTM or 10K).
         :type financial_data_period: str, optional
-        :return: A dictionary containing the analyzed data for each ticker, with ticker symbols as keys.
-        :rtype: dict
+        :return: None
         """
         logger.info(f"Starting analysis for tickers: {ticker_string} with target: {target}, "
                     f"period: {financial_data_period}")
@@ -1770,6 +1780,7 @@ class Compiler:
     - compile(analyzer_output_or_filepath, target='fundamentals'): Compiles the analyzed data into a structured
     DataFrame.
     """
+
     @staticmethod
     def compile(analyzer_output_or_filepath, target='fundamentals'):
         """
