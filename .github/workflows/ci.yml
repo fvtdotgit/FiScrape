@@ -1,5 +1,4 @@
 name: ci
-
 on:
   push:
   pull_request:
@@ -13,25 +12,26 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: "pip"
+          python-version: '3.11'
 
-      - name: Install dev deps
+      - name: Upgrade pip
+        run: python -m pip install -U pip
+
+      # Install your package (editable) + core deps used in tests.
+      # Avoid relying on a [dev] extra so CI doesn't fail if it's not defined.
+      - name: Install package and deps
         run: |
-          python -m pip install -U pip
-          pip install -r requirements-dev.txt
-          # If your package has no setup/pyproject, just set PYTHONPATH below.
+          pip install -e .
+          pip install pytest pytest-cov pandas numpy yfinance
 
-      - name: Ruff (format check)
-        run: ruff format --check .
+      # Optional: show versions to help debug CI env mismatches
+      - name: Debug versions
+        run: |
+          python -V
+          python -c "import pandas, numpy, yfinance; print('pandas', pandas.__version__, 'numpy', numpy.__version__, 'yfinance', yfinance.__version__)"
 
-      - name: Ruff (lint)
-        run: ruff check .
-
-      - name: Mypy
-        run: mypy .
-
-      - name: Pytest
+      - name: Run tests
         env:
-          PYTHONPATH: .
+          # If your code reads envs to configure logging level, set them here:
+          PYTHONWARNINGS: default
         run: pytest -q

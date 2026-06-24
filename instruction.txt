@@ -1,0 +1,193 @@
+FiScrape — Project Overview
+North Star: Polish the UI and core functionality first. Keep compute pure and private, formatting in the UI, and network at service edges—so an agent can be dropped in later without refactoring.
+Table of Contents
+* Architecture
+* Runtime Dataflow
+* Modules & Responsibilities
+* Metrics Ownership & Rules
+* UI (Streamlit) Surfaces
+* Portfolio Workflows
+* Refresh, Caching & Performance
+* Errors, Warnings & Tracing
+* Naming, Keys & Data Shapes
+* Tests & CI
+* How to Add a New Metric
+* Troubleshooting Quickies
+* Roadmap (nice-to-have)
+
+Architecture
+
+[ Streamlit UI ]  <-- formatting, controls, rendering
+       │
+       ▼
+[ Technicals.snapshot ]  <-- orchestrator (no math): fetch quote/history, resolve active price (post→pre→regular),
+       │                    gap-fill info, build volume signals, per-call history cache
+       │
+       ├──> [ Services ]  <-- single Yahoo boundary; canonical keys; no math
+       │
+       ├──> [ Metrics Engine ]  <-- provider-first; compute-only-if-missing; 52w & ETF helpers
+       │
+       └──> [ FundamentalsAnalyzer ]  <-- statement scalars & non-price metrics; statement-based valuation fallbacks
+Separation of concerns
+* Services: Network boundary; pass through useful Yahoo fields; canonicalize names; add safe fallbacks (e.g., last daily close).
+* Technicals: Orchestrates one live “snapshot”; resolves active price; builds volume signals; does not do valuation math.
+* Metrics Engine: Math hub for values that can be computed from quote/info (provider-first), plus helpers (52w, NAV premium, assets estimate).
+* Fundamentals: Reads statements and computes stable non-price metrics and valuation fallbacks that touch statements.
+
+Runtime Dataflow
+1. UI calls TechnicalAnalyzer.snapshot(symbol, period, interval, extras=...).
+2. Services returns quote with canonical keys (regular/pre/post prices & times, ratios, volumes, 52w, shares, ETF fields).
+3. Technicals:
+    * Resolves active price (post→pre→regular; by state/timestamp; never None).
+    * Calls Metrics Engine with the active price and merged info (profile + quote).
+    * Gap-fills missing info fields from engine outputs (no math).
+    * Builds volume % vs avg and z-score (3mo → 10d → history).
+    * Enriches the profile with consistent keys (math-free).
+4. Fundamentals (pipeline stage; not called every snapshot) writes statement scalars and fallback valuation metrics when Yahoo is missing them.
+
+Modules & Responsibilities
+services.py
+* One job: pull + normalize Yahoo live data (no math).
+* Emits canonical keys only, consuming aliases if needed (e.g., averageVolume → averageDailyVolume3Month).
+* Adds a last daily close fallback for regularMarketPrice if live is missing.
+technical.py (TechnicalAnalyzer.snapshot)
+* Orchestrator (stateless).
+* Resolves active price (activePriceSource badge).
+* Local per-call history cache to avoid redundant fetches.
+* Volume ladder (3mo → 10d → history).
+* Final merge to return (metrics, history, info).
+metrics_engine.py
+* Provider-first: if Yahoo provides a ratio/change, pass it through; else compute.
+* Computes only quote/info-based items:
+    * marketCap (price × shares)
+    * dividendYield (if missing)
+    * 52w helpers: offHighPct, positionInRange, activeOver52wLow, activeOver52wHigh
+    * ETF: navPremiumPct, fundAssetsEst (when netAssets missing)
+    * Alias: priceToSalesTtm (copy of provider/fallback)
+* No network calls.
+fundamentals.py (FundamentalsAnalyzer)
+* Statement scalars: epsTtm, bookValue (per share), totalRevenue/revenueTtm, cashFlowFromOperationsTtm, etc.
+* Statement-based valuation fallbacks (only if Yahoo missing; use REGULAR price):
+    * trailing P/E, P/B, P/S (TTM), P/CF (TTM).
+* Growth & strength/profitability metrics (ROIC, margins, coverage, liquidity).
+* Writes values via ScrapedTicker.set_attr.
+
+Metrics Ownership & Rules
+Ownership
+* Yahoo (pass-through): trailingPE, priceToBook, priceToSalesTrailing12Months, dividendYield, % change, prices, times, volumes, 52w, shares.
+* Fundamentals (fallbacks; regular price): P/E, P/B, P/S, P/CF TTM (only if provider missing).
+* Engine (compute-only-if-missing): dividendYield (if missing), marketCap, 52w helpers, navPremiumPct, fundAssetsEst, priceToSalesTtm alias.
+* Technicals: Active price, volume % vs avg & z-score, math-free info merge.
+Rules
+* Active price: post → pre → regular (by marketState and timestamps). Expose activePriceSource.
+* Provider-first: never recompute a provider ratio if present.
+* Denominators: if denominator ≤ 0, return 0; if missing, return None.
+* Formatting: UI handles rounding, units, and % signs (engine/UI keep raw floats).
+Merge precedence
+1. Quote (live) → 2) Profile/info (one-and-done) → 3) Fundamentals scalars/fallbacks → 4) Engine gap-fill → 5) None.
+
+UI (Streamlit) Surfaces
+Overview tab
+* Controls: Period, Interval, Style, Reset.
+* Tiles: Price (with activePriceSource tag), Market Cap, Volume vs avg (+σ), 52w range position.
+* Chart: line/candlestick; optional volume overlay.
+* Timestamps: live, history, pipeline snapshot.
+Technicals tab
+* Toggles: SMA(20/50), EMA(20), RSI(14), MACD(12/26/9), Bollinger(20,2).
+* Layout: main price + indicator panes.
+* Reuses cached history; computes indicators locally.
+Fundamentals tab
+* Table fed by FundamentalsAnalyzer fields (scalars, growth, strength, profitability).
+* Sortable columns, sticky header, column picker, numeric alignment, conditional bars.
+* Filters (e.g., ROIC > 10%, D/E < 50%).
+* Export visible table to CSV; row click → details drawer.
+
+Portfolio Workflows
+* CRUD (create/rename/duplicate/delete).
+* Bulk move/copy tickers between portfolios.
+* Import/export portfolios (JSON).
+* Validation: normalize + dedupe tickers with inline warnings.
+* Clear empty/partial data states; predictable keyboard affordances.
+
+Refresh, Caching & Performance
+* TTL knobs: quote / intraday / EOD / pipeline (derive UI auto-refresh cadence from TTLs).
+* Local per-call history cache in snapshot for (period, interval) pairs (prevents redundant fetches).
+* All yfinance calls are wrapped in cached app-layer helpers (no double-caching in core).
+* Keep compute pure; avoid rounding until UI.
+
+Errors, Warnings & Tracing
+* Services: non-blocking warning if live quote/history fails; fallbacks applied.
+* Technicals: warns when UI-required keys missing: marketState or an actionable price.
+* Volume: warns if history lacks Volume column or is too short for z-score.
+* Trace: _trace() hooks for price, metrics, volume, and merges (toggleable).
+
+Naming, Keys & Data Shapes
+* Public keys camelCase.
+* priceToSalesTtm is our alias for Yahoo’s priceToSalesTrailing12Months.
+* Growth dicts: {"growth": float, "sign": "negative-to-positive" | ...}; no rounding.
+* UI handles formatting and units.
+
+Tests & CI
+* Services: canonical outputs, alias intake, last daily close fallback.
+* Engine: provider-first passthrough; P/S fallback (denom rules); P/CF passthrough; 52w & ETF helpers.
+* Snapshot: active price resolver; no-math enrich + gap-fill; volume ladder; ETF end-to-end.
+* pytest, ruff, mypy (--strict), pre-commit (black or ruff-format).
+* CI (GitHub Actions): ruff + mypy + pytest on PR.
+
+How to Add a New Metric
+Decision tree
+1. Does Yahoo provide it? → Add to Services allowlist. Done.
+2. Does it require statements (EPS/Book/Revenue/CFO/etc.)? → Compute in Fundamentals (use regular price if needed). Return 0 when denom ≤ 0; None when missing.
+3. Is it quote/info-only? → Compute in Engine (provider-first); or alias/copy there if Yahoo name differs.
+4. Is it presentation-only? → Format in UI (no compute).
+Checklist
+* Add/confirm canonical key in Services output.
+* If Engine: compute-only-if-missing; guard denominators.
+* If Fundamentals: write via set_attr in grouped section (scalars, growth, strength/profitability, fallbacks).
+* Add 1–2 unit tests (provider-present vs missing).
+
+Troubleshooting Quickies
+* “unknown keys not in registry: ['averageVolume']” Services now emit canonical keys only; ensure you’re not returning aliases downstream.
+* Price tile blank Active price resolver may have no prices—check quote blob and timestamps; fallback uses last daily close via Services; snapshot never returns None price.
+* Volume z-score missing History too short or Volume column missing; see non-blocking warnings in logs.
+
+Roadmap (nice-to-have)
+* Statement-based current/quick ratio, D/E, ROA/ROE, margins, payout in Fundamentals.
+* Themeable design tokens (light/dark).
+* Watchlist heatmap (price % and volume σ).
+* Docs page for developer quickstart, with small diagrams.
+* Command bus for future agent (intents: create_portfolio, add_tickers, theme, etc.).
+
+Guiding principle: keep compute pure and private, formatting in the UI, and network at service edges. This preserves speed today and lets us bolt in an agent tomorrow without a rewrite.
+
+FiScrape — Chat Workflow & Coding Rules (for ChatGPT)
+Goal-first workflow
+* Start by restating the concrete goal and the affected files. Confirm invariants (provider-first, active price, math-free enrich).
+* Propose a tiny plan (1–3 edit blocks max), then provide drop-in patches with a few surrounding lines for easy diffs.
+* No background tasks, no hand-wavy promises. Deliver the patch now; add tests immediately after.
+Ownership & precedence (never violate)
+* Services (services.py): single Yahoo boundary. Emit canonical keys only, accept aliases. No math. Include:
+    * Prices/times, % change, volumes (3m/10d), 52-week, shares, ETF fields.
+    * Fallback: if regularMarketPrice missing, use last daily close.
+* Technicals / snapshot: orchestrator. Resolve active price (post → pre → regular via canon.normalize_market_state). Build volume signals; local history cache; math-free merge/gap-fill.
+* Metrics Engine (metrics_engine.py): provider-first; compute only if missing from quote/info:
+    * marketCap, dividendYield (if missing), 52-week helpers (offHighPct, positionInRange, activeOver52wLow/High), ETF (navPremiumPct, fundAssetsEst), alias priceToSalesTtm.
+    * Denominator rule: if denom ≤ 0 ⇒ 0; if denom missing ⇒ None. Preserve 0.0 (don’t treat as falsy).
+* Fundamentals (fundamentals.py): statement scalars + statement-based valuation fallbacks (P/E, P/B, P/S, P/CF TTM) only if provider missing. Use regular price for these fallbacks. Growth/strength/profitability live here.
+* Enrichment (enrich_info_with_live): normalization only. No arithmetic.
+Key data contracts
+* UI reads metrics["price"] (canonical active price) and may show activePriceSource (“post”|“pre”|“regular”).
+* Keep raw floats; UI formats (abbrev, %).
+* Keep both priceToSalesTrailing12Months (provider) and alias priceToSalesTtm.
+Coding style
+* Provide “Edit Block” patches (small, self-contained), mindful of nearby untouched code.
+* Prefer merged info (profile + quote) when feeding the engine (provider values win).
+* Don’t overwrite provider values; gap-fill only when they’re None.
+Tests (add/update right after code)
+* Services: last-close fallback; canonical volume key normalization.
+* Engine: provider-first passthrough; P/S fallback incl. denom cases; P/CF passthrough; 52-week & ETF helpers.
+* Snapshot: active price selection (PRE/POST/REG); gap-fill into info; volume ladder (3m → 10d → history); ETF end-to-end.
+Debug/UX
+* Use lightweight _trace(...) and per-ticker warnings (non-blocking).
+* If something breaks (price/volume tiles), suspect active price source or missing canonical keys first.
+Guiding principle: compute where it belongs, prefer the provider, never do math in enrichment, and ship small patches with tests.

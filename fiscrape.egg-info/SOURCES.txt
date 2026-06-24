@@ -1,0 +1,16 @@
+pyproject.toml
+fiscrape.egg-info/PKG-INFO
+fiscrape.egg-info/SOURCES.txt
+fiscrape.egg-info/dependency_links.txt
+fiscrape.egg-info/top_level.txt
+fiscrape_core/__init__.py
+fiscrape_core/core.py
+fiscrape_core/fundamentals.py
+fiscrape_core/metrics.py
+fiscrape_core/metrics_engine.py
+fiscrape_core/services.py
+fiscrape_core/technical.py
+fiscrape_core/utils.py
+tests/test_fundamentals.py
+tests/test_metrics_engine.py
+tests/tests_metrics.py
